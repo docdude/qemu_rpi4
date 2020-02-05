@@ -336,6 +336,11 @@ static const TypeInfo raspi_machine_types[] = {
         .class_init     = raspi_machine_class_init,
         .class_data     = (void *)0x9000c1,
     }, {
+        .name           = MACHINE_TYPE_NAME("raspi1"),
+        .parent         = TYPE_RASPI_MACHINE,
+        .class_init     = raspi_machine_class_init,
+        .class_data     = (void *)0x900032,
+    }, {
         .name           = MACHINE_TYPE_NAME("raspi2"),
         .parent         = TYPE_RASPI_MACHINE,
         .class_init     = raspi_machine_class_init,
