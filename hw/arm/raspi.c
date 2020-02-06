@@ -89,7 +89,7 @@ static int board_version(uint32_t board_rev)
 static const char *board_soc_type(uint32_t board_rev)
 {
     static const char *soc_types[] = {
-        TYPE_BCM2835, TYPE_BCM2836, TYPE_BCM2837,
+        TYPE_BCM2835, TYPE_BCM2836, TYPE_BCM2837, TYPE_BCM2838,
     };
     int proc_id = board_processor_id(board_rev);
 
@@ -104,7 +104,7 @@ static const char *board_soc_type(uint32_t board_rev)
 static int cores_count(uint32_t board_rev)
 {
     static const int soc_cores_count[] = {
-        1, BCM283X_NCPUS, BCM283X_NCPUS,
+        1, BCM283X_NCPUS, BCM283X_NCPUS, BCM283X_NCPUS,
     };
     int proc_id = board_processor_id(board_rev);
 
@@ -351,6 +351,11 @@ static const TypeInfo raspi_machine_types[] = {
         .parent         = TYPE_RASPI_MACHINE,
         .class_init     = raspi_machine_class_init,
         .class_data     = (void *)0xa02082,
+    }, {
+        .name           = MACHINE_TYPE_NAME("raspi4"),
+        .parent         = TYPE_RASPI_MACHINE,
+        .class_init     = raspi_machine_class_init,
+        .class_data     = (void *)0xa03111,
 #endif
     }, {
         .name           = TYPE_RASPI_MACHINE,
