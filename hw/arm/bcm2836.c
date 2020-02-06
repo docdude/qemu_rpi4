@@ -24,6 +24,7 @@ typedef struct BCM283XClass {
     int core_count;
     hwaddr peri_base; /* Peripheral base address seen by the CPU */
     hwaddr ctrl_base; /* Interrupt controller and mailboxes etc. */
+    hwaddr gic_base;
     int clusterid;
 } BCM283XClass;
 
@@ -49,6 +50,11 @@ static void bcm2836_init(Object *obj)
     if (bc->core_count) {
         qdev_property_add_static(DEVICE(obj), &bcm2836_enabled_cores_property);
         qdev_prop_set_uint32(DEVICE(obj), "enabled-cpus", bc->core_count);
+    }
+
+    if (bc->gic_base) {
+        sysbus_init_child_obj(obj, "gic", &s->gic, sizeof(s->gic),
+                              TYPE_ARM_GIC);
     }
 
     if (bc->ctrl_base) {
@@ -201,6 +207,188 @@ static void bcm2836_realize(DeviceState *dev, Error **errp)
     }
 }
 
+#ifdef TARGET_AARCH64
+
+#define GIC400_MAINTAINANCE_IRQ  9
+#define GIC400_TIMER_NS_EL2_IRQ 10
+#define GIC400_TIMER_VIRT_IRQ   11
+#define GIC400_LEGACY_FIQ       12
+#define GIC400_TIMER_S_EL1_IRQ  13
+#define GIC400_TIMER_NS_EL1_IRQ 14
+#define GIC400_LEGACY_IRQ       15
+
+/* Number of external interrupt lines to configure the GIC with */
+#define GIC_NUM_IRQS                128
+
+#define PPI(cpu, irq) (GIC_NUM_IRQS + (cpu) * GIC_INTERNAL + GIC_NR_SGIS + irq)
+
+#define GIC_BASE_OFS                0x0000
+#define GIC_DIST_OFS                0x1000
+#define GIC_CPU_OFS                 0x2000
+#define GIC_VIFACE_THIS_OFS         0x4000
+#define GIC_VIFACE_OTHER_OFS(cpu)  (0x5000 + (cpu) * 0x200)
+#define GIC_VCPU_OFS                0x6000
+
+#define NUM_GICV2M_SPIS       64
+
+#define VIRTUAL_PMU_IRQ 7
+
+static void bcm2838_gic_set_irq(void *opaque, int irq, int level)
+{
+    BCM283XState *s = (BCM283XState *)opaque;
+
+    printf("bcm2838_gic_set_irq irq:%d lvl:%d\n", irq, level);
+    qemu_set_irq(qdev_get_gpio_in(DEVICE(&s->gic), irq), level);
+}
+
+static void bcm2838_realize(DeviceState *dev, Error **errp)
+{
+    BCM283XState *s = BCM283X(dev);
+    BCM283XClass *bc = BCM283X_GET_CLASS(dev);
+    Error *err = NULL;
+    int n;
+
+    bcm283x_common_realize(dev, &err);
+    if (err) {
+        error_propagate(errp, err);
+        return;
+    }
+
+    sysbus_mmio_map_overlap(SYS_BUS_DEVICE(&s->peripherals), 0,
+                            bc->peri_base, 1);
+
+    /* bcm2836 interrupt controller (and mailboxes, etc.) */
+    object_property_set_bool(OBJECT(&s->control), true, "realized", &err);
+    if (err) {
+        error_propagate(errp, err);
+        return;
+    }
+
+    sysbus_mmio_map(SYS_BUS_DEVICE(&s->control), 0, bc->ctrl_base);
+
+    /* Create cores */
+    for (n = 0; n < bc->core_count; n++) {
+        /* TODO: this should be converted to a property of ARM_CPU */
+        s->cpu[n].core.mp_affinity = (bc->clusterid << 8) | n;
+
+        /* set periphbase/CBAR value for CPU-local registers */
+        object_property_set_int(OBJECT(&s->cpu[n]),
+                                bc->peri_base,
+                                "reset-cbar", &err);
+        if (err) {
+            error_propagate(errp, err);
+            return;
+        }
+
+        /* start powered off if not enabled */
+        object_property_set_bool(OBJECT(&s->cpu[n]), n >= s->enabled_cpus,
+                                 "start-powered-off", &err);
+        if (err) {
+            error_propagate(errp, err);
+            return;
+        }
+
+        object_property_set_bool(OBJECT(&s->cpu[n]), true, "realized", &err);
+        if (err) {
+            error_propagate(errp, err);
+            return;
+        }
+    }
+
+    object_property_set_uint(OBJECT(&s->gic), 2, "revision", &err);
+    if (err) {
+        error_propagate(errp, err);
+        return;
+    }
+
+    object_property_set_uint(OBJECT(&s->gic),
+                             BCM283X_NCPUS, "num-cpu", &err);
+    if (err) {
+        error_propagate(errp, err);
+        return;
+    }
+
+    object_property_set_uint(OBJECT(&s->gic),
+                             GIC_NUM_IRQS + GIC_INTERNAL, "num-irq", &err);
+    if (err) {
+        error_propagate(errp, err);
+        return;
+    }
+
+    object_property_set_bool(OBJECT(&s->gic),
+                             true, "has-virtualization-extensions", &err);
+    if (err) {
+        error_propagate(errp, err);
+        return;
+    }
+
+    object_property_set_bool(OBJECT(&s->gic), true, "realized", &err);
+    if (err) {
+        error_propagate(errp, err);
+        return;
+    }
+
+    sysbus_mmio_map(SYS_BUS_DEVICE(&s->gic), 0,
+                    bc->ctrl_base + bc->gic_base + GIC_DIST_OFS);
+    sysbus_mmio_map(SYS_BUS_DEVICE(&s->gic), 1,
+                    bc->ctrl_base + bc->gic_base + GIC_CPU_OFS);
+    sysbus_mmio_map(SYS_BUS_DEVICE(&s->gic), 2,
+                    bc->ctrl_base + bc->gic_base + GIC_VIFACE_THIS_OFS);
+    sysbus_mmio_map(SYS_BUS_DEVICE(&s->gic), 3,
+                    bc->ctrl_base + bc->gic_base + GIC_VCPU_OFS);
+
+    for (n = 0; n < BCM283X_NCPUS; n++) {
+        sysbus_mmio_map(SYS_BUS_DEVICE(&s->gic), 4 + n,
+                        bc->ctrl_base + bc->gic_base
+                        + GIC_VIFACE_OTHER_OFS(n));
+    }
+
+    for (n = 0; n < BCM283X_NCPUS; n++) {
+        DeviceState *cpudev = DEVICE(&s->cpu[n]);
+        DeviceState *gicdev = DEVICE(&s->gic);
+
+        /* Connect the GICv2 outputs to the CPU */
+        sysbus_connect_irq(SYS_BUS_DEVICE(&s->gic), n,
+                           qdev_get_gpio_in(cpudev, ARM_CPU_IRQ));
+        sysbus_connect_irq(SYS_BUS_DEVICE(&s->gic), n + BCM283X_NCPUS,
+                           qdev_get_gpio_in(cpudev, ARM_CPU_FIQ));
+        sysbus_connect_irq(SYS_BUS_DEVICE(&s->gic), n + 2 * BCM283X_NCPUS,
+                           qdev_get_gpio_in(cpudev, ARM_CPU_VIRQ));
+        sysbus_connect_irq(SYS_BUS_DEVICE(&s->gic), n + 3 * BCM283X_NCPUS,
+                        qdev_get_gpio_in(cpudev, ARM_CPU_VFIQ));
+
+        sysbus_connect_irq(SYS_BUS_DEVICE(&s->gic), n + 4 * BCM283X_NCPUS,
+                        qdev_get_gpio_in(gicdev,
+                                         PPI(n, GIC400_MAINTAINANCE_IRQ)));
+
+        /* Connect timers from the CPU to the interrupt controller */
+        qdev_connect_gpio_out(cpudev, GTIMER_PHYS,
+              qdev_get_gpio_in(gicdev, PPI(n, GIC400_TIMER_NS_EL1_IRQ)));
+        qdev_connect_gpio_out(cpudev, GTIMER_VIRT,
+              qdev_get_gpio_in(gicdev, PPI(n, GIC400_TIMER_VIRT_IRQ)));
+        qdev_connect_gpio_out(cpudev, GTIMER_HYP,
+              qdev_get_gpio_in(gicdev, PPI(n, GIC400_TIMER_NS_EL2_IRQ)));
+        qdev_connect_gpio_out(cpudev, GTIMER_SEC,
+              qdev_get_gpio_in(gicdev, PPI(n, GIC400_TIMER_S_EL1_IRQ)));
+        /* PMU interrupt */
+        qdev_connect_gpio_out_named(cpudev, "pmu-interrupt", 0,
+            qdev_get_gpio_in(gicdev, PPI(n, VIRTUAL_PMU_IRQ)));
+    }
+
+    /* Pass through inbound GPIO lines to the GIC */
+    qdev_init_gpio_in(dev, bcm2838_gic_set_irq, GIC_NUM_IRQS);
+
+    /* Pass through outbound IRQ lines from the GIC */
+    qdev_pass_gpios(DEVICE(&s->gic), DEVICE(&s->peripherals), NULL);
+
+    object_property_set_bool(OBJECT(&s->peripherals), true, "realized", &err);
+    if (err) {
+        error_propagate(errp, err);
+        return;
+    }
+}
+#endif /* TARGET_AARCH64 */
+
 static void bcm283x_class_init(ObjectClass *oc, void *data)
 {
     DeviceClass *dc = DEVICE_CLASS(oc);
@@ -246,6 +434,20 @@ static void bcm2837_class_init(ObjectClass *oc, void *data)
     bc->clusterid = 0x0;
     dc->realize = bcm2836_realize;
 };
+
+static void bcm2838_class_init(ObjectClass *oc, void *data)
+{
+    DeviceClass *dc = DEVICE_CLASS(oc);
+    BCM283XClass *bc = BCM283X_CLASS(oc);
+
+    bc->cpu_type = ARM_CPU_TYPE_NAME("cortex-a72");
+    bc->core_count = BCM283X_NCPUS;
+    bc->peri_base = 0xfe000000;
+    bc->ctrl_base = 0xff800000;
+    bc->gic_base = 0x40000;
+    bc->clusterid = 0x0;
+    dc->realize = bcm2838_realize;
+};
 #endif
 
 static const TypeInfo bcm283x_types[] = {
@@ -262,6 +464,10 @@ static const TypeInfo bcm283x_types[] = {
         .name           = TYPE_BCM2837,
         .parent         = TYPE_BCM283X,
         .class_init     = bcm2837_class_init,
+    }, {
+        .name           = TYPE_BCM2838,
+        .parent         = TYPE_BCM283X,
+        .class_init     = bcm2838_class_init,
 #endif
     }, {
         .name           = TYPE_BCM283X,
