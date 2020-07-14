@@ -24,11 +24,13 @@ typedef struct BCM2835GpioState {
 
     /* SDBus selector */
     SDBus sdbus;
-    SDBus *sdbus_sdhci;
+    SDBus *sdbus_mmcnr;
+    SDBus *sdbus_emmc2;    
     SDBus *sdbus_sdhost;
 
     uint8_t fsel[54];
     uint32_t lev0, lev1;
+    uint32_t pup_pdn;    
     uint8_t sd_fsel;
     qemu_irq out[54];
 } BCM2835GpioState;

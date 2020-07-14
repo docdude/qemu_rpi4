@@ -52,7 +52,11 @@ static uint64_t bcm2835_rng_read(void *opaque, hwaddr offset,
     case 0x8:    /* rng_data */
         res = get_random_bytes();
         break;
-
+    case 0xc:
+        res = 17;
+        break;
+    case 0x24:
+        res = get_random_bytes();;        
     default:
         qemu_log_mask(LOG_GUEST_ERROR,
                       "bcm2835_rng_read: Bad offset %x\n",
@@ -111,7 +115,7 @@ static void bcm2835_rng_init(Object *obj)
     BCM2835RngState *s = BCM2835_RNG(obj);
 
     memory_region_init_io(&s->iomem, obj, &bcm2835_rng_ops, s,
-                          TYPE_BCM2835_RNG, 0x10);
+                          TYPE_BCM2835_RNG, 0x100);
     sysbus_init_mmio(SYS_BUS_DEVICE(s), &s->iomem);
 }
 

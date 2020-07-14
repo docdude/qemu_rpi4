@@ -51,6 +51,10 @@ static void bcm2835_property_mbox_push(BCM2835PropertyState *s, uint32_t value)
         switch (tag) {
         case 0x00000000: /* End tag */
             break;
+        case 0x00000002: /* ?? */
+            stl_le_phys(&s->dma_as, value + 12, 1);
+            resplen = 8;
+            break;            
         case 0x00000001: /* Get firmware revision */
             stl_le_phys(&s->dma_as, value + 12, 346337);
             resplen = 4;
@@ -66,14 +70,14 @@ static void bcm2835_property_mbox_push(BCM2835PropertyState *s, uint32_t value)
             resplen = 4;
             break;
         case 0x00010003: /* Get board MAC address */
+                printf("***********************************************************\n");
             resplen = sizeof(s->macaddr.a);
             dma_memory_write(&s->dma_as, value + 12, s->macaddr.a, resplen);
             break;
         case 0x00010004: /* Get board serial */
-            qemu_log_mask(LOG_UNIMP,
-                          "bcm2835_property: 0x%08x get board serial NYI\n",
-                          tag);
-            resplen = 8;
+        printf("***********************************************************\n");
+            resplen = sizeof(s->macaddr.a);
+            dma_memory_write(&s->dma_as, value + 12, s->macaddr.a, resplen);
             break;
         case 0x00010005: /* Get ARM memory */
             /* base */
@@ -98,30 +102,408 @@ static void bcm2835_property_mbox_push(BCM2835PropertyState *s, uint32_t value)
             resplen = 8;
             break;
 
+     case 0x00030041: /* 	RPI_FIRMWARE_GET_GPIO_STATE */
+            switch (ldl_le_phys(&s->dma_as, value + 12)) {
+            case 0x80: 
+
+                            stl_le_phys(&s->dma_as, value + 12, 0);
+                stl_le_phys(&s->dma_as, value + 16, 1);
+                              stl_le_phys(&s->dma_as, value + 20, 0);
+                         stl_le_phys(&s->dma_as, value + 24, 0); 
+            stl_le_phys(&s->dma_as, value + 28, 0);  
+                        stl_le_phys(&s->dma_as, value + 36, 0x00020a59);   
+                                                   
+                break;
+            case 0x81: 
+                            stl_le_phys(&s->dma_as, value + 12, 0);
+                stl_le_phys(&s->dma_as, value + 16, 1);
+                              stl_le_phys(&s->dma_as, value + 20, 0);
+                         stl_le_phys(&s->dma_as, value + 24, 0); 
+            stl_le_phys(&s->dma_as, value + 28, 0);  
+                        stl_le_phys(&s->dma_as, value + 36, 0x00020a59);   
+                                                   
+                break;
+            case 0x82: 
+                        printf("gipogiaopsidaspdofiads\n");
+                            stl_le_phys(&s->dma_as, value + 12, 0);
+                stl_le_phys(&s->dma_as, value + 16, 1);
+                              stl_le_phys(&s->dma_as, value + 20, 0);
+                         stl_le_phys(&s->dma_as, value + 24, 0); 
+            stl_le_phys(&s->dma_as, value + 28, 0);  
+                        stl_le_phys(&s->dma_as, value + 36, 0x00020a59);   
+                                                   
+                break;
+            case 0x83:
+                            stl_le_phys(&s->dma_as, value + 12, 0);
+                stl_le_phys(&s->dma_as, value + 16, 1);
+                              stl_le_phys(&s->dma_as, value + 20, 0);
+                         stl_le_phys(&s->dma_as, value + 24, 0); 
+            stl_le_phys(&s->dma_as, value + 28, 0);  
+                        stl_le_phys(&s->dma_as, value + 36, 0x00020a59);   
+                                                   
+                break;
+            case 0x84: 
+                            stl_le_phys(&s->dma_as, value + 12, 0);
+                stl_le_phys(&s->dma_as, value + 16, 1);
+                              stl_le_phys(&s->dma_as, value + 20, 0);
+                         stl_le_phys(&s->dma_as, value + 24, 0); 
+            stl_le_phys(&s->dma_as, value + 28, 0);  
+                        stl_le_phys(&s->dma_as, value + 36, 0x00020a59);   
+                                                   
+                break;
+            case 0x85: 
+                             stl_le_phys(&s->dma_as, value + 12, 0);
+                stl_le_phys(&s->dma_as, value + 16, 1);
+                              stl_le_phys(&s->dma_as, value + 20, 0);
+                         stl_le_phys(&s->dma_as, value + 24, 0); 
+            stl_le_phys(&s->dma_as, value + 28, 0);  
+                        stl_le_phys(&s->dma_as, value + 36, 0x00020a59);   
+                                                   
+                break;
+            case 0x86: 
+                            stl_le_phys(&s->dma_as, value + 12, 0);
+                stl_le_phys(&s->dma_as, value + 16, 1);
+                              stl_le_phys(&s->dma_as, value + 20, 0);
+                         stl_le_phys(&s->dma_as, value + 24, 0); 
+            stl_le_phys(&s->dma_as, value + 28, 0);  
+                        stl_le_phys(&s->dma_as, value + 36, 0x00020a59);   
+                                                   
+                break;
+            case 0x87:
+                             stl_le_phys(&s->dma_as, value + 12, 0);
+                stl_le_phys(&s->dma_as, value + 16, 1);
+                              stl_le_phys(&s->dma_as, value + 20, 0);
+                         stl_le_phys(&s->dma_as, value + 24, 0); 
+            stl_le_phys(&s->dma_as, value + 28, 0);  
+                        stl_le_phys(&s->dma_as, value + 36, 0x00020a59);   
+                                                   
+                break;
+              
+            default:
+                stl_le_phys(&s->dma_as, value + 16, 0);
+                break;
+            }
+            resplen = 0x14;
+            break;                       
+        case 0x00038041: /* 	RPI_FIRMWARE_SET_GPIO_STATE */     
+            switch (ldl_le_phys(&s->dma_as, value + 12)) {
+            case 0x80: 
+//            printf("gipogiaopsidaspdofiads\n");
+                            stl_le_phys(&s->dma_as, value + 12, 0);
+            tmp = ldl_le_phys(&s->dma_as, value + 16);
+            stl_le_phys(&s->dma_as, value + 16, (tmp & 1));
+                              stl_le_phys(&s->dma_as, value + 20, 0);
+                         stl_le_phys(&s->dma_as, value + 24, 0); 
+            stl_le_phys(&s->dma_as, value + 28, 0);  
+                        stl_le_phys(&s->dma_as, value + 36, 0x00020a59);   
+                                                   
+                break;
+            case 0x81: 
+                            stl_le_phys(&s->dma_as, value + 12, 0);
+            tmp = ldl_le_phys(&s->dma_as, value + 16);
+            stl_le_phys(&s->dma_as, value + 16, (tmp & 1));
+                              stl_le_phys(&s->dma_as, value + 20, 0);
+                         stl_le_phys(&s->dma_as, value + 24, 0); 
+            stl_le_phys(&s->dma_as, value + 28, 0);  
+                        stl_le_phys(&s->dma_as, value + 36, 0x00020a59);   
+                                                   
+                break;
+            case 0x82: 
+                            stl_le_phys(&s->dma_as, value + 12, 0);
+            tmp = ldl_le_phys(&s->dma_as, value + 16);
+            stl_le_phys(&s->dma_as, value + 16, (tmp & 1));
+                              stl_le_phys(&s->dma_as, value + 20, 0);
+                         stl_le_phys(&s->dma_as, value + 24, 0); 
+            stl_le_phys(&s->dma_as, value + 28, 0);  
+                        stl_le_phys(&s->dma_as, value + 36, 0x00020a59);   
+                                                   
+                break;
+            case 0x83:
+                            stl_le_phys(&s->dma_as, value + 12, 0);
+            tmp = ldl_le_phys(&s->dma_as, value + 16);
+            stl_le_phys(&s->dma_as, value + 16, (tmp & 1));
+                              stl_le_phys(&s->dma_as, value + 20, 0);
+                         stl_le_phys(&s->dma_as, value + 24, 0); 
+            stl_le_phys(&s->dma_as, value + 28, 0);  
+                        stl_le_phys(&s->dma_as, value + 36, 0x00020a59);   
+                                                   
+                break;
+            case 0x84: 
+                            stl_le_phys(&s->dma_as, value + 12, 0);
+            tmp = ldl_le_phys(&s->dma_as, value + 16);
+            stl_le_phys(&s->dma_as, value + 16, (tmp & 1));
+                              stl_le_phys(&s->dma_as, value + 20, 0);
+                         stl_le_phys(&s->dma_as, value + 24, 0); 
+            stl_le_phys(&s->dma_as, value + 28, 0);  
+                        stl_le_phys(&s->dma_as, value + 36, 0x00020a59);   
+                                                   
+                break;
+            case 0x85: 
+                             stl_le_phys(&s->dma_as, value + 12, 0);
+            tmp = ldl_le_phys(&s->dma_as, value + 16);
+            stl_le_phys(&s->dma_as, value + 16, (tmp & 1));
+                              stl_le_phys(&s->dma_as, value + 20, 0);
+                         stl_le_phys(&s->dma_as, value + 24, 0); 
+            stl_le_phys(&s->dma_as, value + 28, 0);  
+                        stl_le_phys(&s->dma_as, value + 36, 0x00020a59);   
+                                                   
+                break;
+            case 0x86: 
+                            stl_le_phys(&s->dma_as, value + 12, 0);
+            tmp = ldl_le_phys(&s->dma_as, value + 16);
+            stl_le_phys(&s->dma_as, value + 16, (tmp & 1));
+                              stl_le_phys(&s->dma_as, value + 20, 0);
+                         stl_le_phys(&s->dma_as, value + 24, 0); 
+            stl_le_phys(&s->dma_as, value + 28, 0);  
+                        stl_le_phys(&s->dma_as, value + 36, 0x00020a59);   
+                                                   
+                break;
+            case 0x87:
+                             stl_le_phys(&s->dma_as, value + 12, 0);
+            tmp = ldl_le_phys(&s->dma_as, value + 16);
+            stl_le_phys(&s->dma_as, value + 16, (tmp & 1));
+                              stl_le_phys(&s->dma_as, value + 20, 0);
+                         stl_le_phys(&s->dma_as, value + 24, 0); 
+            stl_le_phys(&s->dma_as, value + 28, 0);  
+                        stl_le_phys(&s->dma_as, value + 36, 0x00020a59);   
+                                                   
+                break;
+              
+            default:
+                stl_le_phys(&s->dma_as, value + 16, 0);
+                break;
+            }
+            resplen = 0x14;
+            break;                         
+       case 0x00030043: /* Get GPIO CONFIG */
+            switch (ldl_le_phys(&s->dma_as, value + 12)) {
+            case 0x80: 
+
+                            stl_le_phys(&s->dma_as, value + 12, 0);
+                stl_le_phys(&s->dma_as, value + 16, 1);
+                              stl_le_phys(&s->dma_as, value + 20, 0);
+                         stl_le_phys(&s->dma_as, value + 24, 0); 
+            stl_le_phys(&s->dma_as, value + 28, 0);  
+                        stl_le_phys(&s->dma_as, value + 36, 0x00020a59);   
+                                                   
+                break;
+            case 0x81: 
+                            stl_le_phys(&s->dma_as, value + 12, 0);
+                stl_le_phys(&s->dma_as, value + 16, 1);
+                              stl_le_phys(&s->dma_as, value + 20, 0);
+                         stl_le_phys(&s->dma_as, value + 24, 0); 
+            stl_le_phys(&s->dma_as, value + 28, 0);  
+                        stl_le_phys(&s->dma_as, value + 36, 0x00020a59);   
+                                                   
+                break;
+            case 0x82: 
+                        printf("gipogiaopsidaspdofiads\n");
+                            stl_le_phys(&s->dma_as, value + 12, 0);
+                stl_le_phys(&s->dma_as, value + 16, 1);
+                              stl_le_phys(&s->dma_as, value + 20, 0);
+                         stl_le_phys(&s->dma_as, value + 24, 0); 
+            stl_le_phys(&s->dma_as, value + 28, 0);  
+                        stl_le_phys(&s->dma_as, value + 36, 0x00020a59);   
+                                                   
+                break;
+            case 0x83:
+                            stl_le_phys(&s->dma_as, value + 12, 0);
+                stl_le_phys(&s->dma_as, value + 16, 1);
+                              stl_le_phys(&s->dma_as, value + 20, 0);
+                         stl_le_phys(&s->dma_as, value + 24, 0); 
+            stl_le_phys(&s->dma_as, value + 28, 0);  
+                        stl_le_phys(&s->dma_as, value + 36, 0x00020a59);   
+                                                   
+                break;
+            case 0x84: 
+                            stl_le_phys(&s->dma_as, value + 12, 0);
+                stl_le_phys(&s->dma_as, value + 16, 1);
+                              stl_le_phys(&s->dma_as, value + 20, 0);
+                         stl_le_phys(&s->dma_as, value + 24, 0); 
+            stl_le_phys(&s->dma_as, value + 28, 0);  
+                        stl_le_phys(&s->dma_as, value + 36, 0x00020a59);   
+                                                   
+                break;
+            case 0x85: 
+                             stl_le_phys(&s->dma_as, value + 12, 0);
+                stl_le_phys(&s->dma_as, value + 16, 1);
+                              stl_le_phys(&s->dma_as, value + 20, 0);
+                         stl_le_phys(&s->dma_as, value + 24, 0); 
+            stl_le_phys(&s->dma_as, value + 28, 0);  
+                        stl_le_phys(&s->dma_as, value + 36, 0x00020a59);   
+                                                   
+                break;
+            case 0x86: 
+                            stl_le_phys(&s->dma_as, value + 12, 0);
+                stl_le_phys(&s->dma_as, value + 16, 1);
+                              stl_le_phys(&s->dma_as, value + 20, 0);
+                         stl_le_phys(&s->dma_as, value + 24, 0); 
+            stl_le_phys(&s->dma_as, value + 28, 0);  
+                        stl_le_phys(&s->dma_as, value + 36, 0x00020a59);   
+                                                   
+                break;
+            case 0x87:
+                             stl_le_phys(&s->dma_as, value + 12, 0);
+                stl_le_phys(&s->dma_as, value + 16, 1);
+                              stl_le_phys(&s->dma_as, value + 20, 0);
+                         stl_le_phys(&s->dma_as, value + 24, 0); 
+            stl_le_phys(&s->dma_as, value + 28, 0);  
+                        stl_le_phys(&s->dma_as, value + 36, 0x00020a59);   
+                                                   
+                break;
+              
+            default:
+                stl_le_phys(&s->dma_as, value + 16, 0);
+                break;
+            }
+            resplen = 0x14;
+            break;  
+       case 0x00038043: 
+            switch (ldl_le_phys(&s->dma_as, value + 12)) {
+            case 0x80: 
+            printf("gipogiaopsidaspdofiads\n");
+                            stl_le_phys(&s->dma_as, value + 12, 0);
+                stl_le_phys(&s->dma_as, value + 16, 0);
+                              stl_le_phys(&s->dma_as, value + 20, 0);
+                         stl_le_phys(&s->dma_as, value + 24, 0); 
+            stl_le_phys(&s->dma_as, value + 28, 0);  
+                        stl_le_phys(&s->dma_as, value + 36, 0x00020a59);   
+                                                   
+                break;
+            case 0x81: 
+                            stl_le_phys(&s->dma_as, value + 12, 0);
+                stl_le_phys(&s->dma_as, value + 16, 0);
+                              stl_le_phys(&s->dma_as, value + 20, 0);
+                         stl_le_phys(&s->dma_as, value + 24, 0); 
+            stl_le_phys(&s->dma_as, value + 28, 0);  
+                        stl_le_phys(&s->dma_as, value + 36, 0x00020a59);   
+                                                   
+                break;
+            case 0x82: 
+                            stl_le_phys(&s->dma_as, value + 12, 0);
+                stl_le_phys(&s->dma_as, value + 16, 0);
+                              stl_le_phys(&s->dma_as, value + 20, 0);
+                         stl_le_phys(&s->dma_as, value + 24, 0); 
+            stl_le_phys(&s->dma_as, value + 28, 0);  
+                        stl_le_phys(&s->dma_as, value + 36, 0x00020a59);   
+                                                   
+                break;
+            case 0x83:
+                            stl_le_phys(&s->dma_as, value + 12, 0);
+                stl_le_phys(&s->dma_as, value + 16, 0);
+                              stl_le_phys(&s->dma_as, value + 20, 0);
+                         stl_le_phys(&s->dma_as, value + 24, 0); 
+            stl_le_phys(&s->dma_as, value + 28, 0);  
+                        stl_le_phys(&s->dma_as, value + 36, 0x00020a59);   
+                                                   
+                break;
+            case 0x84: 
+                            stl_le_phys(&s->dma_as, value + 12, 0);
+                stl_le_phys(&s->dma_as, value + 16, 0);
+                              stl_le_phys(&s->dma_as, value + 20, 0);
+                         stl_le_phys(&s->dma_as, value + 24, 0); 
+            stl_le_phys(&s->dma_as, value + 28, 0);  
+                        stl_le_phys(&s->dma_as, value + 36, 0x00020a59);   
+                                                   
+                break;
+            case 0x85: 
+                             stl_le_phys(&s->dma_as, value + 12, 0);
+                stl_le_phys(&s->dma_as, value + 16, 0);
+                              stl_le_phys(&s->dma_as, value + 20, 0);
+                         stl_le_phys(&s->dma_as, value + 24, 0); 
+            stl_le_phys(&s->dma_as, value + 28, 0);  
+                        stl_le_phys(&s->dma_as, value + 36, 0x00020a59);   
+                                                   
+                break;
+            case 0x86: 
+                            stl_le_phys(&s->dma_as, value + 12, 0);
+                stl_le_phys(&s->dma_as, value + 16, 0);
+                              stl_le_phys(&s->dma_as, value + 20, 0);
+                         stl_le_phys(&s->dma_as, value + 24, 0); 
+            stl_le_phys(&s->dma_as, value + 28, 0);  
+                        stl_le_phys(&s->dma_as, value + 36, 0x00020a59);   
+                                                   
+                break;
+            case 0x87:
+                             stl_le_phys(&s->dma_as, value + 12, 0);
+                stl_le_phys(&s->dma_as, value + 16, 0);
+                              stl_le_phys(&s->dma_as, value + 20, 0);
+                         stl_le_phys(&s->dma_as, value + 24, 0); 
+            stl_le_phys(&s->dma_as, value + 28, 0);  
+                        stl_le_phys(&s->dma_as, value + 36, 0x00020a59);   
+                                                   
+                break;
+              
+            default:
+                stl_le_phys(&s->dma_as, value + 16, 0);
+                break;
+            }
+            resplen = 0x14;
+            break;   
+             
         /* Clocks */
 
         case 0x00030001: /* Get clock state */
             stl_le_phys(&s->dma_as, value + 16, 0x1);
             resplen = 8;
-            break;
-
+            break;              
         case 0x00038001: /* Set clock state */
             qemu_log_mask(LOG_UNIMP,
                           "bcm2835_property: 0x%08x set clock state NYI\n",
                           tag);
             resplen = 8;
             break;
+   
 
-        case 0x00030002: /* Get clock rate */
+       case 0x00030002: /* Get clock rate */
         case 0x00030004: /* Get max clock rate */
         case 0x00030007: /* Get min clock rate */
+        printf("***************************clk 0x%x*****\n",ldl_le_phys(&s->dma_as, value + 12));
             switch (ldl_le_phys(&s->dma_as, value + 12)) {
             case 1: /* EMMC */
-                stl_le_phys(&s->dma_as, value + 16, 50000000);
+                stl_le_phys(&s->dma_as, value + 16, 250000496);
                 break;
             case 2: /* UART */
-                stl_le_phys(&s->dma_as, value + 16, 3000000);
+                stl_le_phys(&s->dma_as, value + 16, 48001464);
                 break;
+            case 3: /* ARM */
+                stl_le_phys(&s->dma_as, value + 16, 2000478464);
+                resplen = 8;
+                break;
+            case 4: /* CORE */                      
+                stl_le_phys(&s->dma_as, value + 16, 500000992);
+                resplen = 8;
+                break;
+            case 5: /* V3D */
+                stl_le_phys(&s->dma_as, value + 16, 750001472);
+                resplen = 8;
+                break;
+            case 6: /* H264 */
+                    stl_le_phys(&s->dma_as, value + 16, 0);
+                resplen = 8;
+                break;
+            case 7: /* ISP */
+                    stl_le_phys(&s->dma_as, value + 16, 0);
+                resplen = 8;
+                break; 
+            case 8: /* SDRAM */
+                qemu_log_mask(LOG_UNIMP,
+                          "bcm2835_property: 0x%08x get clock rate NYI\n",
+                          tag);
+                resplen = 8;
+                break; 
+            case 9: /* PIXEL */
+                stl_le_phys(&s->dma_as, value + 16, 75001464);
+                resplen = 8;
+                break;
+            case 10: /* PWM */
+                    stl_le_phys(&s->dma_as, value + 16, 0);
+                resplen = 8;
+                break;
+                                                                                                                            
+            case 12: /* EMMC2 */ printf("***************************emmc2 clk*****\n");
+                stl_le_phys(&s->dma_as, value + 16, 0x5f5e100);
+                break;                   
             default:
                 stl_le_phys(&s->dma_as, value + 16, 700000000);
                 break;

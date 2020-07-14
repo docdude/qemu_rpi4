@@ -15,13 +15,13 @@
 #include "hw/misc/bcm2835_mbox_defs.h"
 #include "hw/arm/raspi_platform.h"
 #include "sysemu/sysemu.h"
+#include "net/net.h"
 
-/* Peripheral base address on the VC (GPU) system bus */
-#define BCM2835_VC_PERI_BASE 0x7e000000
 
 /* Capabilities for SD controller: no DMA, high-speed, default clocks etc. */
 #define BCM2835_SDHC_CAPAREG 0x52134b4
-
+//#define BCM2835_SDHC_CAPAREG 0x057834b4
+//#define BCM2835_SDHC_CAPAREG 0xa52505ee6432
 static void create_unimp(BCM2835PeripheralState *ps,
                          UnimplementedDeviceState *uds,
                          const char *name, hwaddr ofs, hwaddr size)
@@ -41,9 +41,13 @@ static void bcm2835_peripherals_init(Object *obj)
     BCM2835PeripheralState *s = BCM2835_PERIPHERALS(obj);
 
     /* Memory region for peripheral devices, which we export to our parent */
-    memory_region_init(&s->peri_mr, obj,"bcm2835-peripherals", 0x1000000);
+    memory_region_init(&s->peri_mr, obj,"bcm2835-peripherals", 0x3000000);
     object_property_add_child(obj, "peripheral-io", OBJECT(&s->peri_mr), NULL);
     sysbus_init_mmio(SYS_BUS_DEVICE(s), &s->peri_mr);
+    /* Memory region for peripheral devices, which we export to our parent */
+ //   memory_region_init(&s->peri_mr2, obj,"bcm2835-pcie", 0x1000000);
+   // object_property_add_child(obj, "pcie-io", OBJECT(&s->peri_mr2), NULL);
+   // sysbus_init_mmio(SYS_BUS_DEVICE(s), &s->peri_mr2);
 
     /* Internal memory region for peripheral bus addresses (not exported) */
     memory_region_init(&s->gpu_bus_mr, obj, "bcm2835-gpu", (uint64_t)1 << 32);
@@ -101,8 +105,10 @@ static void bcm2835_peripherals_init(Object *obj)
                           TYPE_BCM2835_RNG);
 
     /* Extended Mass Media Controller */
-    sysbus_init_child_obj(obj, "sdhci", &s->sdhci, sizeof(s->sdhci),
+    sysbus_init_child_obj(obj, "mmcnr", &s->mmcnr, sizeof(s->mmcnr),
                           TYPE_SYSBUS_SDHCI);
+    sysbus_init_child_obj(obj, "emmc2", &s->emmc2, sizeof(s->emmc2),
+                          TYPE_SYSBUS_SDHCI);                          
 
     /* SDHOST */
     sysbus_init_child_obj(obj, "sdhost", &s->sdhost, sizeof(s->sdhost),
@@ -122,11 +128,26 @@ static void bcm2835_peripherals_init(Object *obj)
     /* GPIO */
     sysbus_init_child_obj(obj, "gpio", &s->gpio, sizeof(s->gpio),
                           TYPE_BCM2835_GPIO);
-
-    object_property_add_const_link(OBJECT(&s->gpio), "sdbus-sdhci",
-                                   OBJECT(&s->sdhci.sdbus), &error_abort);
+    object_property_add_const_link(OBJECT(&s->gpio), "sdbus-mmcnr",
+                                   OBJECT(&s->mmcnr.sdbus), &error_abort);
+    object_property_add_const_link(OBJECT(&s->gpio), "sdbus-emmc2",
+                                   OBJECT(&s->emmc2.sdbus), &error_abort);
     object_property_add_const_link(OBJECT(&s->gpio), "sdbus-sdhost",
                                    OBJECT(&s->sdhost.sdbus), &error_abort);
+#if 0                                 
+    /* GENET */    
+    sysbus_init_child_obj(obj, "ftgmac100", OBJECT(&s->ftgmac100),
+                              sizeof(s->ftgmac100), TYPE_FTGMAC100);
+    sysbus_init_child_obj(obj, "mii", &s->mii, sizeof(s->mii),
+                             TYPE_ASPEED_MII);
+#else  
+
+    /* GENET */    
+    sysbus_init_child_obj(obj, "bcmgenet", OBJECT(&s->bcmgenet),
+                              sizeof(s->bcmgenet), TYPE_BCMGENET);
+    sysbus_init_child_obj(obj, "unimac_mdio", &s->unimac_mdio, sizeof(s->unimac_mdio),
+                             TYPE_UNIMAC_MDIO);   
+#endif                                                                                        
 }
 
 static void bcm2835_peripherals_realize(DeviceState *dev, Error **errp)
@@ -155,6 +176,13 @@ static void bcm2835_peripherals_realize(DeviceState *dev, Error **errp)
 
     memory_region_add_subregion_overlap(&s->gpu_bus_mr, BCM2835_VC_PERI_BASE,
                                         &s->peri_mr_alias, 1);
+    /* Map peripherals and RAM into the GPU address space. */
+ //   memory_region_init_alias(&s->peri_mr_alias2, OBJECT(s),
+  //                           "bcm2835-pcie", &s->peri_mr2, 0,
+   //                          memory_region_size(&s->peri_mr2));
+
+  //  memory_region_add_subregion_overlap(&s->gpu_bus_mr, 0x7d000000,
+   //                                     &s->peri_mr_alias2, 1);
 
     /* RAM is aliased four times (different cache configurations) on the GPU */
     for (n = 0; n < 4; n++) {
@@ -163,7 +191,17 @@ static void bcm2835_peripherals_realize(DeviceState *dev, Error **errp)
         memory_region_add_subregion_overlap(&s->gpu_bus_mr, (hwaddr)n << 30,
                                             &s->ram_alias[n], 0);
     }
+    
 
+
+//    obj = object_property_get_link(OBJECT(dev), "gicv2", &err);
+ //   if (obj == NULL) {
+ //       error_setg(errp, "%s: required gicv2 link not found: %s",
+  //              __func__, error_get_pretty(err));
+  //      return;
+  //  }
+ ////   s->gic.gic = ARM_GIC(obj);
+        
     /* Interrupt Controller */
     object_property_set_bool(OBJECT(&s->ic), true, "realized", &err);
     if (err) {
@@ -183,9 +221,9 @@ static void bcm2835_peripherals_realize(DeviceState *dev, Error **errp)
     }
     memory_region_add_subregion(&s->peri_mr, ST_OFFSET,
                 sysbus_mmio_get_region(SYS_BUS_DEVICE(&s->systmr), 0));
-    sysbus_connect_irq(SYS_BUS_DEVICE(&s->systmr), 0,
-        qdev_get_gpio_in_named(DEVICE(&s->ic), BCM2835_IC_ARM_IRQ,
-                               INTERRUPT_ARM_TIMER));
+ //   sysbus_connect_irq(SYS_BUS_DEVICE(&s->systmr), 0,
+  //      qdev_get_gpio_in_named(DEVICE(&s->ic), BCM2835_IC_ARM_IRQ,
+    //                          INTERRUPT_ARM_TIMER));
 
     /* UART0 */
     qdev_prop_set_chr(DEVICE(&s->uart0), "chardev", serial_hd(0));
@@ -197,9 +235,9 @@ static void bcm2835_peripherals_realize(DeviceState *dev, Error **errp)
 
     memory_region_add_subregion(&s->peri_mr, UART0_OFFSET,
                 sysbus_mmio_get_region(SYS_BUS_DEVICE(&s->uart0), 0));
-    sysbus_connect_irq(SYS_BUS_DEVICE(&s->uart0), 0,
-        qdev_get_gpio_in_named(DEVICE(&s->ic), BCM2835_IC_GPU_IRQ,
-                               INTERRUPT_UART0));
+//    sysbus_connect_irq(SYS_BUS_DEVICE(&s->uart0), 0,
+ //       qdev_get_gpio_in_named(DEVICE(&s->ic), BCM2835_IC_GPU_IRQ,
+  //                             INTERRUPT_UART0));
 
     /* AUX / UART1 */
     qdev_prop_set_chr(DEVICE(&s->aux), "chardev", serial_hd(1));
@@ -212,9 +250,9 @@ static void bcm2835_peripherals_realize(DeviceState *dev, Error **errp)
 
     memory_region_add_subregion(&s->peri_mr, AUX_OFFSET,
                 sysbus_mmio_get_region(SYS_BUS_DEVICE(&s->aux), 0));
-    sysbus_connect_irq(SYS_BUS_DEVICE(&s->aux), 0,
-        qdev_get_gpio_in_named(DEVICE(&s->ic), BCM2835_IC_GPU_IRQ,
-                               INTERRUPT_AUX));
+ //   sysbus_connect_irq(SYS_BUS_DEVICE(&s->aux), 0,
+   //     qdev_get_gpio_in_named(DEVICE(&s->ic), BCM2835_IC_GPU_IRQ,
+      //                         INTERRUPT_AUX));
 
     /* Mailboxes */
     object_property_set_bool(OBJECT(&s->mboxes), true, "realized", &err);
@@ -225,9 +263,9 @@ static void bcm2835_peripherals_realize(DeviceState *dev, Error **errp)
 
     memory_region_add_subregion(&s->peri_mr, ARMCTRL_0_SBM_OFFSET,
                 sysbus_mmio_get_region(SYS_BUS_DEVICE(&s->mboxes), 0));
-    sysbus_connect_irq(SYS_BUS_DEVICE(&s->mboxes), 0,
-        qdev_get_gpio_in_named(DEVICE(&s->ic), BCM2835_IC_ARM_IRQ,
-                               INTERRUPT_ARM_MAILBOX));
+ //   sysbus_connect_irq(SYS_BUS_DEVICE(&s->mboxes), 0,
+  //      qdev_get_gpio_in_named(DEVICE(&s->ic), BCM2835_IC_ARM_IRQ,
+    //                           INTERRUPT_ARM_MAILBOX));
 
     /* Framebuffer */
     vcram_size = object_property_get_uint(OBJECT(s), "vcram-size", &err);
@@ -251,8 +289,8 @@ static void bcm2835_peripherals_realize(DeviceState *dev, Error **errp)
 
     memory_region_add_subregion(&s->mbox_mr, MBOX_CHAN_FB << MBOX_AS_CHAN_SHIFT,
                 sysbus_mmio_get_region(SYS_BUS_DEVICE(&s->fb), 0));
-    sysbus_connect_irq(SYS_BUS_DEVICE(&s->fb), 0,
-                       qdev_get_gpio_in(DEVICE(&s->mboxes), MBOX_CHAN_FB));
+  //  sysbus_connect_irq(SYS_BUS_DEVICE(&s->fb), 0,
+ //                      qdev_get_gpio_in(DEVICE(&s->mboxes), MBOX_CHAN_FB));
 
     /* Property channel */
     object_property_set_bool(OBJECT(&s->property), true, "realized", &err);
@@ -264,8 +302,8 @@ static void bcm2835_peripherals_realize(DeviceState *dev, Error **errp)
     memory_region_add_subregion(&s->mbox_mr,
                 MBOX_CHAN_PROPERTY << MBOX_AS_CHAN_SHIFT,
                 sysbus_mmio_get_region(SYS_BUS_DEVICE(&s->property), 0));
-    sysbus_connect_irq(SYS_BUS_DEVICE(&s->property), 0,
-                      qdev_get_gpio_in(DEVICE(&s->mboxes), MBOX_CHAN_PROPERTY));
+   // sysbus_connect_irq(SYS_BUS_DEVICE(&s->property), 0,
+   //                   qdev_get_gpio_in(DEVICE(&s->mboxes), MBOX_CHAN_PROPERTY));
 
     /* Random Number Generator */
     object_property_set_bool(OBJECT(&s->rng), true, "realized", &err);
@@ -287,27 +325,56 @@ static void bcm2835_peripherals_realize(DeviceState *dev, Error **errp)
      * For the exact details please refer to the Arasan documentation:
      *   SD3.0_Host_AHB_eMMC4.4_Usersguide_ver5.9_jan11_10.pdf
      */
-    object_property_set_uint(OBJECT(&s->sdhci), 3, "sd-spec-version", &err);
-    object_property_set_uint(OBJECT(&s->sdhci), BCM2835_SDHC_CAPAREG, "capareg",
+    object_property_set_uint(OBJECT(&s->mmcnr), 3, "sd-spec-version", &err);
+    object_property_set_uint(OBJECT(&s->mmcnr), BCM2835_SDHC_CAPAREG, "capareg",
                              &err);
-    object_property_set_bool(OBJECT(&s->sdhci), true, "pending-insert-quirk",
+    object_property_set_bool(OBJECT(&s->mmcnr), true, "pending-insert-quirk",
                              &err);
     if (err) {
         error_propagate(errp, err);
         return;
     }
 
-    object_property_set_bool(OBJECT(&s->sdhci), true, "realized", &err);
+   
+    object_property_set_bool(OBJECT(&s->mmcnr), true, "realized", &err);
     if (err) {
         error_propagate(errp, err);
         return;
     }
 
     memory_region_add_subregion(&s->peri_mr, EMMC1_OFFSET,
-                sysbus_mmio_get_region(SYS_BUS_DEVICE(&s->sdhci), 0));
-    sysbus_connect_irq(SYS_BUS_DEVICE(&s->sdhci), 0,
-        qdev_get_gpio_in_named(DEVICE(&s->ic), BCM2835_IC_GPU_IRQ,
-                               INTERRUPT_ARASANSDIO));
+                sysbus_mmio_get_region(SYS_BUS_DEVICE(&s->mmcnr), 0));
+ //   sysbus_connect_irq(SYS_BUS_DEVICE(&s->mmcnr), 0,
+ //       qdev_get_gpio_in_named(dev, BCM2835_IC_GPU_IRQ,
+      //                         INTERRUPT_ARASANSDIO));
+
+    object_property_set_uint(OBJECT(&s->emmc2), 3, "sd-spec-version", &err);
+    object_property_set_uint(OBJECT(&s->emmc2), BCM2835_SDHC_CAPAREG, "capareg",
+                             &err);
+    object_property_set_bool(OBJECT(&s->emmc2), true, "pending-insert-quirk",
+                             &err);
+    if (err) {
+        error_propagate(errp, err);
+        return;
+    }
+                                   
+    object_property_set_bool(OBJECT(&s->emmc2), true, "realized", &err);
+    if (err) {
+        error_propagate(errp, err);
+        return;
+    }
+ //      DeviceState *gicdev = DEVICE(dev);
+    memory_region_add_subregion(&s->peri_mr, EMMC2_OFFSET,
+                sysbus_mmio_get_region(SYS_BUS_DEVICE(&s->emmc2), 0));
+   // sysbus_connect_irq(SYS_BUS_DEVICE(&s->emmc2), 0,
+      // qdev_get_gpio_in_named(gicdev, BCM2835_IC_GPU_IRQ,
+          //                     INTERRUPT_ARASANSDIO));
+         
+         
+         
+    //     sysbus_connect_irq(SYS_BUS_DEVICE(&s->emmc2), 0,
+   //     qdev_get_gpio_in(DEVICE(&s->gic), 
+         //                      INTERRUPT_ARASANSDIO));
 
     /* SDHOST */
     object_property_set_bool(OBJECT(&s->sdhost), true, "realized", &err);
@@ -315,7 +382,6 @@ static void bcm2835_peripherals_realize(DeviceState *dev, Error **errp)
         error_propagate(errp, err);
         return;
     }
-
     memory_region_add_subregion(&s->peri_mr, MMCI0_OFFSET,
                 sysbus_mmio_get_region(SYS_BUS_DEVICE(&s->sdhost), 0));
     sysbus_connect_irq(SYS_BUS_DEVICE(&s->sdhost), 0,
@@ -333,14 +399,14 @@ static void bcm2835_peripherals_realize(DeviceState *dev, Error **errp)
                 sysbus_mmio_get_region(SYS_BUS_DEVICE(&s->dma), 0));
     memory_region_add_subregion(&s->peri_mr, DMA15_OFFSET,
                 sysbus_mmio_get_region(SYS_BUS_DEVICE(&s->dma), 1));
-
+/*
     for (n = 0; n <= 12; n++) {
         sysbus_connect_irq(SYS_BUS_DEVICE(&s->dma), n,
                            qdev_get_gpio_in_named(DEVICE(&s->ic),
                                                   BCM2835_IC_GPU_IRQ,
                                                   INTERRUPT_DMA0 + n));
     }
-
+*/
     /* THERMAL */
     object_property_set_bool(OBJECT(&s->thermal), true, "realized", &err);
     if (err) {
@@ -366,9 +432,71 @@ static void bcm2835_peripherals_realize(DeviceState *dev, Error **errp)
         error_propagate(errp, err);
         return;
     }
+#if 0    
+    /* GENET */
 
+    qdev_set_nic_properties(DEVICE(&s->ftgmac100), &nd_table[0]);
+    object_property_set_uint(OBJECT(&s->ftgmac100), 1, "phy_addr",
+                                 &err);    
+
+    object_property_set_bool(OBJECT(&s->ftgmac100), true, "realized",
+                                 &err);
+    if (err) {
+        error_propagate(errp, err);
+       return;
+    }
+    memory_region_add_subregion(&s->peri_mr, GENET_OFFSET,
+                sysbus_mmio_get_region(SYS_BUS_DEVICE(&s->ftgmac100), 0));
+
+        object_property_set_link(OBJECT(&s->mii), OBJECT(&s->ftgmac100),
+                                 "nic", &error_abort);
+                                 
+        object_property_set_bool(OBJECT(&s->mii), true, "realized",
+                                 &err);
+        if (err) {
+            error_propagate(errp, err);
+            return;
+        }
+
+    memory_region_add_subregion(&s->peri_mr, MII_OFFSET,
+                sysbus_mmio_get_region(SYS_BUS_DEVICE(&s->mii), 0));            
+#else    
+
+    /* GENET */
+
+    qdev_set_nic_properties(DEVICE(&s->bcmgenet), &nd_table[0]);
+        object_property_set_uint(OBJECT(&s->bcmgenet), 1, "phy_addr",
+                                 &err);   
+    object_property_set_bool(OBJECT(&s->bcmgenet), true, "realized",
+                                 &err);
+    if (err) {
+        error_propagate(errp, err);
+       return;
+    }
+//    memory_region_add_subregion(&s->peri_mr2, GENET_OFFSET,
+//                sysbus_mmio_get_region(SYS_BUS_DEVICE(&s->bcmgenet), 0));
+    memory_region_add_subregion_overlap(&s->peri_mr, GENET_OFFSET,
+                                        &s->bcmgenet.bcmgenet, 1);
+                                      
+        object_property_set_link(OBJECT(&s->unimac_mdio), OBJECT(&s->bcmgenet),
+                                 "nic", &error_abort);        
+ 
+                                 
+                                 
+        object_property_set_bool(OBJECT(&s->unimac_mdio), true, "realized",
+                                 &err);
+                             
+        if (err) {
+            error_propagate(errp, err);
+            return;
+        }
+
+    memory_region_add_subregion_overlap(&s->peri_mr, MII_OFFSET,
+                sysbus_mmio_get_region(SYS_BUS_DEVICE(&s->unimac_mdio), 0),1);  
+    
+#endif                  
     create_unimp(s, &s->armtmr, "bcm2835-sp804", ARMCTRL_TIMER0_1_OFFSET, 0x40);
-    create_unimp(s, &s->cprman, "bcm2835-cprman", CPRMAN_OFFSET, 0x1000);
+    create_unimp(s, &s->cprman, "bcm2835-cprman", CPRMAN_OFFSET, 0x2000);
     create_unimp(s, &s->a2w, "bcm2835-a2w", A2W_OFFSET, 0x1000);
     create_unimp(s, &s->i2s, "bcm2835-i2s", I2S_OFFSET, 0x100);
     create_unimp(s, &s->smi, "bcm2835-smi", SMI_OFFSET, 0x100);
@@ -382,6 +510,8 @@ static void bcm2835_peripherals_realize(DeviceState *dev, Error **errp)
     create_unimp(s, &s->ave0, "bcm2835-ave0", AVE0_OFFSET, 0x8000);
     create_unimp(s, &s->dwc2, "dwc-usb2", USB_OTG_OFFSET, 0x1000);
     create_unimp(s, &s->sdramc, "bcm2835-sdramc", SDRAMC_OFFSET, 0x100);
+    create_unimp(s, &s->brdg, "bcm2835-brdg", BRDG_OFFSET, 0x100);    
+
 }
 
 static void bcm2835_peripherals_class_init(ObjectClass *oc, void *data)

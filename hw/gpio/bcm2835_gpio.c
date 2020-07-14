@@ -51,6 +51,7 @@
 #define GPPUD     0x94
 #define GPPUDCLK0 0x98
 #define GPPUDCLK1 0x9C
+#define GPPUP_PDN_CNTRL39 0xec
 
 static uint32_t gpfsel_get(BCM2835GpioState *s, uint8_t reg)
 {
@@ -73,20 +74,24 @@ static void gpfsel_set(BCM2835GpioState *s, uint8_t reg, uint32_t value)
         if (index < sizeof(s->fsel)) {
             int fsel = (value >> (3 * i)) & 0x7;
             s->fsel[index] = fsel;
+            printf("*************************index %d fsel 0x%x\n",index, fsel);
         }
     }
-
+}
+static void gpfsel_update_sdbus(BCM2835GpioState *s)
+{
     /* SD controller selection (48-53) */
     if (s->sd_fsel != 0
-            && (s->fsel[48] == 0) /* SD_CLK_R */
-            && (s->fsel[49] == 0) /* SD_CMD_R */
-            && (s->fsel[50] == 0) /* SD_DATA0_R */
-            && (s->fsel[51] == 0) /* SD_DATA1_R */
-            && (s->fsel[52] == 0) /* SD_DATA2_R */
-            && (s->fsel[53] == 0) /* SD_DATA3_R */
-            ) {
+            && (s->fsel[34] == 0) /* SD_CLK_R */
+            && (s->fsel[35] == 0) /* SD_CMD_R */
+            && (s->fsel[36] == 0) /* SD_DATA0_R */
+            && (s->fsel[37] == 0) /* SD_DATA1_R */
+            && (s->fsel[38] == 0) /* SD_DATA2_R */
+            && (s->fsel[39] == 0) /* SD_DATA3_R */
+            ) {printf("********reparent0[0]\n");
         /* SDHCI controller selected */
-        sdbus_reparent_card(s->sdbus_sdhost, s->sdbus_sdhci);
+        sdbus_reparent_card(&s->sdbus, s->sdbus_mmcnr);        
+        sdbus_reparent_card(s->sdbus_emmc2, s->sdbus_mmcnr);
         s->sd_fsel = 0;
     } else if (s->sd_fsel != 4
             && (s->fsel[48] == 4) /* SD_CLK_R */
@@ -95,11 +100,68 @@ static void gpfsel_set(BCM2835GpioState *s, uint8_t reg, uint32_t value)
             && (s->fsel[51] == 4) /* SD_DATA1_R */
             && (s->fsel[52] == 4) /* SD_DATA2_R */
             && (s->fsel[53] == 4) /* SD_DATA3_R */
-            ) {
+            ) {printf("********reparent4[0]\n");
         /* SDHost controller selected */
-        sdbus_reparent_card(s->sdbus_sdhci, s->sdbus_sdhost);
+        sdbus_reparent_card(&s->sdbus, s->sdbus_sdhost);          
+        sdbus_reparent_card(s->sdbus_mmcnr, s->sdbus_sdhost);
+//       sdbus_reparent_card(s->sdbus_sdhost, s->sdbus_sdhci[0]);
         s->sd_fsel = 4;
+    } else if (s->sd_fsel != 7
+            && (s->fsel[34] == 7) /* SD_CLK_R */
+            && (s->fsel[35] == 7) /* SD_CMD_R */
+            && (s->fsel[36] == 7) /* SD_DATA0_R */
+            && (s->fsel[37] == 7) /* SD_DATA1_R */
+            && (s->fsel[38] == 7) /* SD_DATA2_R */
+            && (s->fsel[39] == 7) /* SD_DATA3_R */
+            ) {printf("********reparent7[0]\n");
+        /* SDHost controller selected */
+        sdbus_reparent_card(&s->sdbus, s->sdbus_emmc2);          
+        sdbus_reparent_card(s->sdbus_mmcnr, s->sdbus_emmc2);
+//       sdbus_reparent_card(s->sdbus_sdhost, s->sdbus_sdhci[0]);
+        s->sd_fsel = 7;
     }
+#if 0    
+    /* SD controller selection (48-53) */
+    if (s->sd_fsel != 0
+            && (s->fsel[34] == 0) /* SD_CLK_R */
+            && (s->fsel[35] == 0) /* SD_CMD_R */
+            && (s->fsel[36] == 0) /* SD_DATA0_R */
+            && (s->fsel[37] == 0) /* SD_DATA1_R */
+            && (s->fsel[38] == 0) /* SD_DATA2_R */
+            && (s->fsel[39] == 0) /* SD_DATA3_R */
+            ) {  printf("********reparent0[1]\n");
+        /* SDHCI controller selected */
+        sdbus_reparent_card(&s->sdbus, s->sdbus_mmcnr);          
+//        sdbus_reparent_card(s->sdbus_sdhost, s->sdbus_sdhci[1]);
+        s->sd_fsel = 0;
+    } else if (s->sd_fsel != 4
+            && (s->fsel[48] == 4) /* SD_CLK_R */
+            && (s->fsel[49] == 4) /* SD_CMD_R */
+            && (s->fsel[50] == 4) /* SD_DATA0_R */
+            && (s->fsel[51] == 4) /* SD_DATA1_R */
+            && (s->fsel[52] == 4) /* SD_DATA2_R */
+            && (s->fsel[53] == 4) /* SD_DATA3_R */
+            ) {printf("********reparent4[1]\n");
+        /* SDHost controller selected */
+//        sdbus_reparent_card(s->sdbus_sdhci[1], s->sdbus_sdhost);
+        sdbus_reparent_card(&s->sdbus, s->sdbus_sdhost);  
+ //      sdbus_reparent_card(s->sdbus_sdhost, s->sdbus_sdhci[0]);
+        s->sd_fsel = 4;
+    } else if (s->sd_fsel != 7
+            && (s->fsel[34] == 7) /* SD_CLK_R */
+            && (s->fsel[35] == 7) /* SD_CMD_R */
+            && (s->fsel[36] == 7) /* SD_DATA0_R */
+            && (s->fsel[37] == 7) /* SD_DATA1_R */
+            && (s->fsel[38] == 7) /* SD_DATA2_R */
+            && (s->fsel[39] == 7) /* SD_DATA3_R */
+            ) {printf("********reparent7[1]\n");
+        /* SDHost controller selected */
+//        sdbus_reparent_card(s->sdbus_sdhci[1], s->sdbus_sdhost);
+        sdbus_reparent_card(&s->sdbus, s->sdbus_emmc2);  
+//        sdbus_reparent_card(s->sdbus_sdhci[1], s->sdbus_sdhost);
+        s->sd_fsel = 7;
+    } 
+#endif       
 }
 
 static int gpfsel_is_out(BCM2835GpioState *s, int index)
@@ -188,6 +250,11 @@ static uint64_t bcm2835_gpio_read(void *opaque, hwaddr offset,
     case GPPUDCLK1:
         /* Not implemented */
         return 0;
+    case 0xd0:
+         return 2; /* Magic register hack to use ARASAN(legacy MMC0(bit 1 set)EMMC2(bit 1 not set */
+    case GPPUP_PDN_CNTRL39:
+         return s->pup_pdn;
+          
     default:
         qemu_log_mask(LOG_GUEST_ERROR, "%s: Bad offset %"HWADDR_PRIx"\n",
                 __func__, offset);
@@ -210,6 +277,7 @@ static void bcm2835_gpio_write(void *opaque, hwaddr offset,
     case GPFSEL4:
     case GPFSEL5:
         gpfsel_set(s, offset / 4, value);
+        gpfsel_update_sdbus(s);        
         break;
     case GPSET0:
         gpset(s, value, 0, 32, &s->lev0);
@@ -246,14 +314,17 @@ static void bcm2835_gpio_write(void *opaque, hwaddr offset,
     case GPPUDCLK1:
         /* Not implemented */
         break;
+    case GPPUP_PDN_CNTRL39:
+         s->pup_pdn = value;
+         break;  
     default:
         goto err_out;
     }
     return;
 
 err_out:
-    qemu_log_mask(LOG_GUEST_ERROR, "%s: Bad offset %"HWADDR_PRIx"\n",
-            __func__, offset);
+    qemu_log_mask(LOG_GUEST_ERROR, "%s: Bad offset %"HWADDR_PRIx" value %"HWADDR_PRIx"\n",
+            __func__, offset,value);
 }
 
 static void bcm2835_gpio_reset(DeviceState *dev)
@@ -265,10 +336,18 @@ static void bcm2835_gpio_reset(DeviceState *dev)
         gpfsel_set(s, i, 0);
     }
 
-    s->sd_fsel = 0;
+//    s->sd_fsel = 0;
 
     /* SDHCI is selected by default */
-    sdbus_reparent_card(&s->sdbus, s->sdbus_sdhci);
+//    sdbus_reparent_card(&s->sdbus, s->sdbus_sdhci[0]);
+    /* SDHCI is selected by default */
+//    sdbus_reparent_card(&s->sdbus, s->sdbus_sdhci[1]);    
+    /*
+     * Setup the right sdbus (put 1 in sd_fsel to force reparenting
+     * the sd). It will be SDHCI because of the gpfsel_set() above.
+     */
+    s->sd_fsel = 1;
+    gpfsel_update_sdbus(s);
 
     s->lev0 = 0;
     s->lev1 = 0;
@@ -314,14 +393,22 @@ static void bcm2835_gpio_realize(DeviceState *dev, Error **errp)
     Object *obj;
     Error *err = NULL;
 
-    obj = object_property_get_link(OBJECT(dev), "sdbus-sdhci", &err);
+    obj = object_property_get_link(OBJECT(dev), "sdbus-mmcnr", &err);
     if (obj == NULL) {
         error_setg(errp, "%s: required sdhci link not found: %s",
                 __func__, error_get_pretty(err));
         return;
     }
-    s->sdbus_sdhci = SD_BUS(obj);
-
+    s->sdbus_mmcnr = SD_BUS(obj);
+    
+    obj = object_property_get_link(OBJECT(dev), "sdbus-emmc2", &err);
+    if (obj == NULL) {
+        error_setg(errp, "%s: required sdhci link not found: %s",
+                __func__, error_get_pretty(err));
+        return;
+    }
+    s->sdbus_emmc2 = SD_BUS(obj);
+    
     obj = object_property_get_link(OBJECT(dev), "sdbus-sdhost", &err);
     if (obj == NULL) {
         error_setg(errp, "%s: required sdhost link not found: %s",

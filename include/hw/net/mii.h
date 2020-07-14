@@ -22,25 +22,34 @@
 #define MII_H
 
 /* PHY registers */
-#define MII_BMCR            0  /* Basic mode control register */
-#define MII_BMSR            1  /* Basic mode status register */
-#define MII_PHYID1          2  /* ID register 1 */
-#define MII_PHYID2          3  /* ID register 2 */
-#define MII_ANAR            4  /* Autonegotiation advertisement */
-#define MII_ANLPAR          5  /* Autonegotiation lnk partner abilities */
-#define MII_ANER            6  /* Autonegotiation expansion */
-#define MII_ANNP            7  /* Autonegotiation next page */
-#define MII_ANLPRNP         8  /* Autonegotiation link partner rx next page */
-#define MII_CTRL1000        9  /* 1000BASE-T control */
-#define MII_STAT1000        10 /* 1000BASE-T status */
-#define MII_MDDACR          13 /* MMD access control */
-#define MII_MDDAADR         14 /* MMD access address data */
-#define MII_EXTSTAT         15 /* Extended Status */
-#define MII_NSR             16
-#define MII_LBREMR          17
-#define MII_REC             18
-#define MII_SNRDR           19
-#define MII_TEST            25
+#define MII_BMCR            0x00  /* Basic mode control register */
+#define MII_BMSR            0x01  /* Basic mode status register */
+#define MII_PHYID1          0x02  /* ID register 1 */
+#define MII_PHYID2          0x03  /* ID register 2 */
+#define MII_ANAR            0x04  /* Autonegotiation advertisement */
+#define MII_ANLPAR          0x05  /* Autonegotiation lnk partner abilities */
+#define MII_ANER            0x06  /* Autonegotiation expansion */
+#define MII_ANNP            0x07  /* Autonegotiation next page */
+#define MII_ANLPRNP         0x08  /* Autonegotiation link partner rx next page */
+#define MII_CTRL1000        0x09  /* 1000BASE-T control */
+#define MII_STAT1000        0x0a /* 1000BASE-T status */
+#define MII_MDDACR          0x0d /* MMD access control */
+#define MII_MDDAADR         0x0e /* MMD access address data */
+#define MII_EXTSTAT         0x0f /* Extended Status */
+#define MII_NSR             0x10
+#define MII_LBREMR          0x11
+#define MII_REC             0x12
+#define MII_SNRDR           0x13
+#define MII_NWAYTEST	     0x14	/* N-way auto-neg test reg   20  */
+#define MII_RERRCOUNTER     0x15	/* Receive error counter    21   */
+#define MII_SREVISION	     0x16	/* Silicon revision          22  */
+#define MII_RESV1	     0x17	/* Reserved...               23  */
+#define MII_LBRERROR	     0x18	/* Lpback, rx, bypass error 24   */
+//#define MII_PHYADDR	     0x19	/* PHY address              25   */
+#define MII_RESV2	     0x1a	/* Reserved...              26   */
+#define MII_TPISTATUS	     0x1b	/* TPI status for 10mbps    27   */
+#define MII_NCONFIG	     0x1c	/* Network interface config 28   */
+#define MII_TEST            0x19
 
 /* PHY registers fields */
 #define MII_BMCR_RESET      (1 << 15)
@@ -78,6 +87,7 @@
 #define MII_ANAR_10         (1 << 5)
 #define MII_ANAR_CSMACD     (1 << 0)
 
+#define MII_ANLPAR_NEXT_PAGE (1 << 16)
 #define MII_ANLPAR_ACK      (1 << 14)
 #define MII_ANLPAR_PAUSEASY (1 << 11) /* can pause asymmetrically */
 #define MII_ANLPAR_PAUSE    (1 << 10) /* can pause */
@@ -87,6 +97,10 @@
 #define MII_ANLPAR_10       (1 << 5)
 #define MII_ANLPAR_CSMACD   (1 << 0)
 
+#define MII_ANER_MULT_FAULT	(1 << 4 )
+#define MII_ANER_LP_NP_ABLE	(1 << 3)
+#define MII_ANER_NP_ABLE	(1 << 2)
+#define MII_ANER_PAGE_RX	(1 << 1)
 #define MII_ANER_NWAY       (1 << 0) /* Can do N-way auto-nego */
 
 #define MII_CTRL1000_FULL   (1 << 9)  /* 1000BASE-T full duplex */

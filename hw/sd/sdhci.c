@@ -226,7 +226,7 @@ static void sdhci_raise_insertion_irq(void *opaque)
         timer_mod(s->insert_timer,
                        qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) + SDHC_INSERTION_DELAY);
     } else {
-        s->prnsts = 0x1ff0000;
+        s->prnsts = 0x1fff000;
         if (s->norintstsen & SDHC_NISEN_INSERT) {
             s->norintsts |= SDHC_NIS_INSERT;
         }
@@ -245,7 +245,7 @@ static void sdhci_set_inserted(DeviceState *dev, bool level)
                        qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) + SDHC_INSERTION_DELAY);
     } else {
         if (level) {
-            s->prnsts = 0x1ff0000;
+            s->prnsts = 0x1fff000;
             if (s->norintstsen & SDHC_NISEN_INSERT) {
                 s->norintsts |= SDHC_NIS_INSERT;
             }
@@ -1002,11 +1002,15 @@ static uint64_t sdhci_read(void *opaque, hwaddr offset, unsigned size)
         break;
     case SDHC_HOSTCTL:
         ret = s->hostctl1 | (s->pwrcon << 8) | (s->blkgap << 16) |
-              (s->wakcon << 24);
+              (1 << 23);
         break;
     case SDHC_CLKCON:
         ret = s->clkcon | (s->timeoutcon << 16);
         break;
+    case SDHC_SWRST:
+        ret = 1;
+                printf("@@@@@@@@@@rst 0x%x \n",ret);
+                break;        
     case SDHC_NORINTSTS:
         ret = s->norintsts | (s->errintsts << 16);
         break;
@@ -1082,7 +1086,7 @@ static inline void sdhci_blkgap_write(SDHCIState *s, uint8_t value)
 }
 
 static inline void sdhci_reset_write(SDHCIState *s, uint8_t value)
-{
+{ //printf("reset value **************** 0x%x\n",value);
     switch (value) {
     case SDHC_RESET_ALL:
         sdhci_reset(s);
@@ -1112,7 +1116,7 @@ sdhci_write(void *opaque, hwaddr offset, uint64_t val, unsigned size)
     uint32_t mask = ~(((1ULL << (size * 8)) - 1) << shift);
     uint32_t value = val;
     value <<= shift;
-
+//printf("offset 0x%lx shift 0x%x mask 0x%x value 0x%x size 0x%x\n",offset, shift, mask, value, size);
     switch (offset & ~0x3) {
     case SDHC_SYSAD:
         s->sdmasysad = (s->sdmasysad & mask) | value;
@@ -1180,17 +1184,22 @@ sdhci_write(void *opaque, hwaddr offset, uint64_t val, unsigned size)
         }
         break;
     case SDHC_CLKCON:
-        if (!(mask & 0xFF000000)) {
-            sdhci_reset_write(s, value >> 24);
+        if (!(mask & 0xFF000000)) { //printf("@@@@@@@@@@value 0x%x\n",value);
+            sdhci_reset_write(s, value >> 24); //value &=0xfffff;
         }
-        MASKED_WRITE(s->clkcon, mask, value);
+        MASKED_WRITE(s->clkcon, mask, value); //printf("@@@@@@@@@@value 0x%x clkcon 0x%x\n",value,s->clkcon);
         MASKED_WRITE(s->timeoutcon, mask >> 16, value >> 16);
         if (s->clkcon & SDHC_CLOCK_INT_EN) {
             s->clkcon |= SDHC_CLOCK_INT_STABLE;
         } else {
             s->clkcon &= ~SDHC_CLOCK_INT_STABLE;
         }
+  //      printf("@@@@@@@@@@value 0x%x clkcon 0x%x\n",value,s->clkcon);
         break;
+    case SDHC_SWRST:
+    sdhci_reset_write(s,value);
+             //   printf("@@@@@@@@@@rst 0x%x \n",value);
+                break;
     case SDHC_NORINTSTS:
         if (s->norintstsen & SDHC_NISEN_CARDINT) {
             value &= ~SDHC_NIS_CARDINT;
@@ -1563,7 +1572,7 @@ static uint64_t usdhc_read(void *opaque, hwaddr offset, unsigned size)
         ret  = hostctl1;
         ret |= (uint32_t)s->blkgap << 16;
         ret |= (uint32_t)s->wakcon << 24;
-
+printf("**********WAKCON 0x%x\n",s->wakcon);
         break;
 
     case SDHC_PRNSTS:
@@ -1584,7 +1593,7 @@ static uint64_t usdhc_read(void *opaque, hwaddr offset, unsigned size)
         ret = 0;
         break;
     }
-
+printf("**************ESDHC read offset 0x%lx ret 0x%x\n",offset,ret);
     return ret;
 }
 
@@ -1594,7 +1603,7 @@ usdhc_write(void *opaque, hwaddr offset, uint64_t val, unsigned size)
     SDHCIState *s = SYSBUS_SDHCI(opaque);
     uint8_t hostctl1;
     uint32_t value = (uint32_t)val;
-
+printf("**************ESDHC write offset 0x%lx\n",offset);
     switch (offset) {
     case ESDHC_DLL_CTRL:
     case ESDHC_TUNE_CTRL_STATUS:

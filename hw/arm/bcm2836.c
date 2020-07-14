@@ -15,6 +15,7 @@
 #include "hw/arm/bcm2836.h"
 #include "hw/arm/raspi_platform.h"
 #include "hw/sysbus.h"
+#include "hw/misc/unimp.h"
 
 typedef struct BCM283XClass {
     /*< private >*/
@@ -23,6 +24,7 @@ typedef struct BCM283XClass {
     const char *cpu_type;
     int core_count;
     hwaddr peri_base; /* Peripheral base address seen by the CPU */
+//        hwaddr pcie_base; /* Peripheral base address seen by the CPU */
     hwaddr ctrl_base; /* Interrupt controller and mailboxes etc. */
     hwaddr gic_base;
     int clusterid;
@@ -55,6 +57,8 @@ static void bcm2836_init(Object *obj)
     if (bc->gic_base) {
         sysbus_init_child_obj(obj, "gic", &s->gic, sizeof(s->gic),
                               TYPE_ARM_GIC);
+
+
     }
 
     if (bc->ctrl_base) {
@@ -68,6 +72,8 @@ static void bcm2836_init(Object *obj)
                               "board-rev", &error_abort);
     object_property_add_alias(obj, "vcram-size", OBJECT(&s->peripherals),
                               "vcram-size", &error_abort);
+ //   object_property_add_const_link(OBJECT(&s->peripherals), "gicv2",
+ //                                  OBJECT(&s->gic), &error_abort);
 }
 
 static void bcm283x_common_realize(DeviceState *dev, Error **errp)
@@ -107,6 +113,8 @@ static void bcm283x_common_realize(DeviceState *dev, Error **errp)
 
     sysbus_mmio_map_overlap(SYS_BUS_DEVICE(&s->peripherals), 0,
                             bc->peri_base, 1);
+//    sysbus_mmio_map_overlap(SYS_BUS_DEVICE(&s->peripherals), 1,
+//                            bc->pcie_base, 1);                            
 }
 
 static void bcm2835_realize(DeviceState *dev, Error **errp)
@@ -169,6 +177,7 @@ static void bcm2836_realize(DeviceState *dev, Error **errp)
         object_property_set_int(OBJECT(&s->cpu[n].core),
                                 bc->peri_base,
                                 "reset-cbar", &err);
+                             
         if (err) {
             error_propagate(errp, err);
             return;
@@ -218,7 +227,7 @@ static void bcm2836_realize(DeviceState *dev, Error **errp)
 #define GIC400_LEGACY_IRQ       15
 
 /* Number of external interrupt lines to configure the GIC with */
-#define GIC_NUM_IRQS                128
+#define GIC_NUM_IRQS                192
 
 #define PPI(cpu, irq) (GIC_NUM_IRQS + (cpu) * GIC_INTERNAL + GIC_NR_SGIS + irq)
 
@@ -256,6 +265,8 @@ static void bcm2838_realize(DeviceState *dev, Error **errp)
 
     sysbus_mmio_map_overlap(SYS_BUS_DEVICE(&s->peripherals), 0,
                             bc->peri_base, 1);
+//    sysbus_mmio_map_overlap(SYS_BUS_DEVICE(&s->peripherals), 1,
+ //                           bc->pcie_base, 1);                            
 
     /* bcm2836 interrupt controller (and mailboxes, etc.) */
     object_property_set_bool(OBJECT(&s->control), true, "realized", &err);
@@ -328,6 +339,7 @@ static void bcm2838_realize(DeviceState *dev, Error **errp)
         return;
     }
 
+                                                                 
     sysbus_mmio_map(SYS_BUS_DEVICE(&s->gic), 0,
                     bc->ctrl_base + bc->gic_base + GIC_DIST_OFS);
     sysbus_mmio_map(SYS_BUS_DEVICE(&s->gic), 1,
@@ -336,12 +348,16 @@ static void bcm2838_realize(DeviceState *dev, Error **errp)
                     bc->ctrl_base + bc->gic_base + GIC_VIFACE_THIS_OFS);
     sysbus_mmio_map(SYS_BUS_DEVICE(&s->gic), 3,
                     bc->ctrl_base + bc->gic_base + GIC_VCPU_OFS);
+                    
 
     for (n = 0; n < BCM283X_NCPUS; n++) {
         sysbus_mmio_map(SYS_BUS_DEVICE(&s->gic), 4 + n,
                         bc->ctrl_base + bc->gic_base
                         + GIC_VIFACE_OTHER_OFS(n));
     }
+
+
+    
 
     for (n = 0; n < BCM283X_NCPUS; n++) {
         DeviceState *cpudev = DEVICE(&s->cpu[n]);
@@ -361,7 +377,7 @@ static void bcm2838_realize(DeviceState *dev, Error **errp)
                         qdev_get_gpio_in(gicdev,
                                          PPI(n, GIC400_MAINTAINANCE_IRQ)));
 
-        /* Connect timers from the CPU to the interrupt controller */
+        /* Connect timers from the CPU to the GIC400 */
         qdev_connect_gpio_out(cpudev, GTIMER_PHYS,
               qdev_get_gpio_in(gicdev, PPI(n, GIC400_TIMER_NS_EL1_IRQ)));
         qdev_connect_gpio_out(cpudev, GTIMER_VIRT,
@@ -373,6 +389,12 @@ static void bcm2838_realize(DeviceState *dev, Error **errp)
         /* PMU interrupt */
         qdev_connect_gpio_out_named(cpudev, "pmu-interrupt", 0,
             qdev_get_gpio_in(gicdev, PPI(n, VIRTUAL_PMU_IRQ)));
+ 
+        /* Connect irq/fiq outputs from the legacy interrupt controller. */
+        qdev_connect_gpio_out_named(DEVICE(&s->control), "irq", n,
+                qdev_get_gpio_in(gicdev, PPI(n, GIC400_LEGACY_IRQ)));
+        qdev_connect_gpio_out_named(DEVICE(&s->control), "fiq", n,
+                qdev_get_gpio_in(gicdev, PPI(n, GIC400_LEGACY_FIQ)));               
     }
 
     /* Pass through inbound GPIO lines to the GIC */
@@ -381,11 +403,72 @@ static void bcm2838_realize(DeviceState *dev, Error **errp)
     /* Pass through outbound IRQ lines from the GIC */
     qdev_pass_gpios(DEVICE(&s->gic), DEVICE(&s->peripherals), NULL);
 
+
     object_property_set_bool(OBJECT(&s->peripherals), true, "realized", &err);
     if (err) {
         error_propagate(errp, err);
         return;
     }
+    sysbus_connect_irq(SYS_BUS_DEVICE(&s->peripherals.systmr), 0,
+        qdev_get_gpio_in(DEVICE(&s->peripherals), 
+                               INTERRUPT_ARM_TIMER+32));
+    sysbus_connect_irq(SYS_BUS_DEVICE(&s->peripherals.uart0), 0,
+        qdev_get_gpio_in(DEVICE(&s->peripherals),
+                               INTERRUPT_UART0+32+32));
+    sysbus_connect_irq(SYS_BUS_DEVICE(&s->peripherals.aux), 0,
+        qdev_get_gpio_in(DEVICE(&s->peripherals),
+                               INTERRUPT_AUX+32+32));
+                                                                  
+    sysbus_connect_irq(SYS_BUS_DEVICE(&s->peripherals.mboxes), 0,
+        qdev_get_gpio_in(DEVICE(&s->peripherals), 
+                               INTERRUPT_ARM_MAILBOX+32));
+    sysbus_connect_irq(SYS_BUS_DEVICE(&s->peripherals.fb), 0,
+                       qdev_get_gpio_in(DEVICE(&s->peripherals.mboxes), MBOX_CHAN_FB));
+     sysbus_connect_irq(SYS_BUS_DEVICE(&s->peripherals.property), 0,
+                      qdev_get_gpio_in(DEVICE(&s->peripherals.mboxes), MBOX_CHAN_PROPERTY));
+                                                                           
+                               
+     sysbus_connect_irq(SYS_BUS_DEVICE(&s->peripherals.mmcnr), 0,
+       qdev_get_gpio_in(DEVICE(&s->peripherals), 
+                               INTERRUPT_ARASANSDIO+32+32)); 
+     sysbus_connect_irq(SYS_BUS_DEVICE(&s->peripherals.emmc2), 0,
+       qdev_get_gpio_in(DEVICE(&s->peripherals), 
+                               INTERRUPT_ARASANSDIO+32+32));
+#if 1                               
+     sysbus_connect_irq(SYS_BUS_DEVICE(&s->peripherals.bcmgenet), 0,
+       qdev_get_gpio_in(DEVICE(&s->peripherals), 
+                              INTERRUPT_GENET_157+32+32)); 
+     sysbus_connect_irq(SYS_BUS_DEVICE(&s->peripherals.bcmgenet), 1,
+       qdev_get_gpio_in(DEVICE(&s->peripherals), 
+                              INTERRUPT_GENET_158+32+32));                               
+#endif                                                          
+    for (n = 0; n <= 12; n++) {
+        sysbus_connect_irq(SYS_BUS_DEVICE(&s->peripherals.dma), n,
+                           qdev_get_gpio_in(DEVICE(&s->peripherals),
+                                                  INTERRUPT_DMA0 + n + 32 + 32));
+    }                                                                
+ //     sysbus_connect_irq(SYS_BUS_DEVICE(&s->peripherals.thermal), 0,
+   //    qdev_get_gpio_in(DEVICE(&s->peripherals), 
+   //                            INTERRUPT_THERMAL+32+32));   
+    /* bcm2838 kludge to easily create PCIe */
+    if (bc->gic_base) {
+        create_unimplemented_device("bcm2838-pcie", PCIE_BASE, 0x9311);
+//        create_unimplemented_device("bcm54213-geth", PCIE_BASE + 0x80000, 0x10000);
+                                    
+//       create_unimplemented_device("bcm2838-pm", PCIE_BASE+0xb0a000, 0x25);
+        create_unimplemented_device("bcm2838-pm", PCIE_BASE+0x1711000, 0x21);
+        create_unimplemented_device("bcm2838-pcie", PCIE_BASE+0xB0F300, 0x100);
+//       create_unimplemented_device("bcm2835-pm-wdt", BCM2835_VC_PERI_BASE+0x100a000, 0x1000);
+//       create_unimplemented_device("bcm2835-wdt", BCM2835_VC_PERI_BASE+0x80c11000, 0x21);
+        create_unimplemented_device("bcm2835-v3d", BCM2835_VC_PERI_BASE+0x82c00000, 0xf21);
+        create_unimplemented_device("bcm2835-rpivid-hevc", BCM2835_VC_PERI_BASE+0x82b00000, 0x10000);    
+        create_unimplemented_device("bcm2835-rpivid-intc", BCM2835_VC_PERI_BASE+0x82b10000, 0x1000);  
+        create_unimplemented_device("bcm2835-rpivid-h264", BCM2835_VC_PERI_BASE+0x82b20000, 0x10000); 
+ 
+ create_unimplemented_device("bcm2835-rpivid-vp9",BCM2835_VC_PERI_BASE+0x82b30000,0x10000);
+        create_unimplemented_device("bcm2835-dvp", BCM2835_VC_PERI_BASE+0x82f00000, 0x11);
+        create_unimplemented_device("bcm2835-hvs", BCM2835_VC_PERI_BASE+0x82400000, 0x100);
+    }    
 }
 #endif /* TARGET_AARCH64 */
 
@@ -442,7 +525,8 @@ static void bcm2838_class_init(ObjectClass *oc, void *data)
 
     bc->cpu_type = ARM_CPU_TYPE_NAME("cortex-a72");
     bc->core_count = BCM283X_NCPUS;
-    bc->peri_base = 0xfe000000;
+//    bc->pcie_base = 0xfd000000;
+    bc->peri_base = 0xfc000000;
     bc->ctrl_base = 0xff800000;
     bc->gic_base = 0x40000;
     bc->clusterid = 0x0;

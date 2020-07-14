@@ -46,6 +46,7 @@
 #include "qemu/module.h"
 #include "sdmmc-internal.h"
 #include "trace.h"
+#include "qemu-common.h"
 
 //#define DEBUG_SD 1
 
@@ -183,7 +184,7 @@ static bool sd_get_cmd_line(SDState *sd)
 static void sd_set_voltage(SDState *sd, uint16_t millivolts)
 {
     trace_sdcard_set_voltage(millivolts);
-
+printf("VOLTAGE****************************\n");
     switch (millivolts) {
     case 3001 ... 3600: /* SD_VOLTAGE_3_3V */
     case 2001 ... 3000: /* SD_VOLTAGE_3_0V */
@@ -881,7 +882,7 @@ static sd_rsp_type_t sd_normal_command(SDState *sd, SDRequest req)
 {
     uint32_t rca = 0x0000;
     uint64_t addr = (sd->ocr & (1 << 30)) ? (uint64_t) req.arg << 9 : req.arg;
-
+//printf("COMMAND****************************\n");
     /* CMD55 precedes an ACMD, so we are not interested in tracing it.
      * However there is no ACMD55, so we want to trace this particular case.
      */
@@ -1527,6 +1528,7 @@ static sd_rsp_type_t sd_app_command(SDState *sd,
         break;
 
     case 41:	/* ACMD41: SD_APP_OP_COND */
+  
         if (sd->spi) {
             /* SEND_OP_CMD */
             sd->state = sd_transfer_state;

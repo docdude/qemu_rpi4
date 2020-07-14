@@ -124,6 +124,10 @@ static void bcm2836_control_update(BCM2836ControlState *s)
             if (s->mailboxes[i * BCM2836_MBPERCORE + j] != 0) {
                 /* mailbox j is set */
                 deliver_local(s, i, j + IRQ_MAILBOX0, s->mailboxcontrol[i], j);
+                deliver_local(s, i, j + IRQ_MAILBOX1, s->mailboxcontrol[i], j);
+                deliver_local(s, i, j + IRQ_MAILBOX2, s->mailboxcontrol[i], j);
+                deliver_local(s, i, j + IRQ_MAILBOX3, s->mailboxcontrol[i], j);
+                                                                
             }
         }
     }
@@ -268,6 +272,8 @@ static uint64_t bcm2836_control_read(void *opaque, hwaddr offset, unsigned size)
                       __func__, offset);
         return 0;
     }
+            printf( "%s: offset 0x%"HWADDR_PRIx"\n",
+                      __func__, offset);
 }
 
 static void bcm2836_control_write(void *opaque, hwaddr offset,
@@ -298,7 +304,8 @@ static void bcm2836_control_write(void *opaque, hwaddr offset,
                       __func__, offset, val);
         return;
     }
-
+            printf( "%s: offset 0x%"HWADDR_PRIx" val 0x%lx\n",
+                      __func__, offset, val);
     bcm2836_control_update(s);
 }
 

@@ -97,7 +97,7 @@ static void bcm2835_thermal_realize(DeviceState *dev, Error **errp)
     Bcm2835ThermalState *s = BCM2835_THERMAL(dev);
 
     memory_region_init_io(&s->iomem, OBJECT(s), &bcm2835_thermal_ops,
-                          s, TYPE_BCM2835_THERMAL, 8);
+                          s, TYPE_BCM2835_THERMAL, 0x100);
     sysbus_init_mmio(SYS_BUS_DEVICE(s), &s->iomem);
 }
 

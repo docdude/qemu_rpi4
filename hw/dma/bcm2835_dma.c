@@ -184,6 +184,8 @@ static uint64_t bcm2835_dma_read(BCM2835DMAState *s, hwaddr offset,
                       __func__, offset);
         break;
     }
+            printf("%s: offset 0x%"HWADDR_PRIx"\n",
+                      __func__, offset);
     return res;
 }
 
@@ -232,6 +234,8 @@ static void bcm2835_dma_write(BCM2835DMAState *s, hwaddr offset,
                       __func__, offset);
         break;
     }
+                printf("%s: Bad offset 0x%"HWADDR_PRIx"\n",
+                      __func__, offset);
 }
 
 static uint64_t bcm2835_dma0_read(void *opaque, hwaddr offset, unsigned size)
@@ -252,11 +256,15 @@ static uint64_t bcm2835_dma0_read(void *opaque, hwaddr offset, unsigned size)
             return 0;
         }
     }
+                printf("%s: Bad offset 0x%"HWADDR_PRIx"\n",
+                          __func__, offset);
 }
 
 static uint64_t bcm2835_dma15_read(void *opaque, hwaddr offset, unsigned size)
 {
     return bcm2835_dma_read(opaque, (offset & 0xff), size, 15);
+                    printf("%s: Bad offset 0x%"HWADDR_PRIx"\n",
+                          __func__, offset);
 }
 
 static void bcm2835_dma0_write(void *opaque, hwaddr offset, uint64_t value,
@@ -278,13 +286,16 @@ static void bcm2835_dma0_write(void *opaque, hwaddr offset, uint64_t value,
                           __func__, offset);
         }
     }
-
+                printf("%s: Bad offset 0x%"HWADDR_PRIx"\n",
+                          __func__, offset);
 }
 
 static void bcm2835_dma15_write(void *opaque, hwaddr offset, uint64_t value,
                                 unsigned size)
 {
     bcm2835_dma_write(opaque, (offset & 0xff), value, size, 15);
+                    printf("%s: Bad offset 0x%"HWADDR_PRIx"\n",
+                          __func__, offset);
 }
 
 static const MemoryRegionOps bcm2835_dma0_ops = {

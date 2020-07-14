@@ -123,7 +123,7 @@ static void bcm2835_systmr_realize(DeviceState *dev, Error **errp)
     BCM2835SystemTimerState *s = BCM2835_SYSTIMER(dev);
 
     memory_region_init_io(&s->iomem, OBJECT(dev), &bcm2835_systmr_ops,
-                          s, "bcm2835-sys-timer", 0x20);
+                          s, "bcm2835-sys-timer", 0x40);
     sysbus_init_mmio(SYS_BUS_DEVICE(dev), &s->iomem);
     sysbus_init_irq(SYS_BUS_DEVICE(dev), &s->irq);
 }

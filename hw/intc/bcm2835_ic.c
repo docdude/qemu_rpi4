@@ -127,7 +127,8 @@ static uint64_t bcm2835_ic_read(void *opaque, hwaddr offset, unsigned size)
                       __func__, offset);
         return 0;
     }
-
+        printf( "%s: offset 0x%"HWADDR_PRIx" 0x%x\n",
+                      __func__, offset, res);
     return res;
 }
 
@@ -164,6 +165,8 @@ static void bcm2835_ic_write(void *opaque, hwaddr offset, uint64_t val,
                       __func__, offset);
         return;
     }
+            printf( "%s: offset 0x%"HWADDR_PRIx" 0x%lx\n",
+                      __func__, offset, val);
     bcm2835_ic_update(s);
 }
 

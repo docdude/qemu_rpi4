@@ -1029,6 +1029,7 @@ static void arm_setup_direct_kernel_boot(ARMCPU *cpu,
          * If there is still some room left at the base of RAM, try and put
          * the DTB there like we do for images loaded with -bios or -pflash.
          */
+
         if (image_low_addr > info->loader_start
             || image_high_addr < info->loader_start) {
             /*
@@ -1039,6 +1040,7 @@ static void arm_setup_direct_kernel_boot(ARMCPU *cpu,
                 image_low_addr = 0;
             }
             info->dtb_start = info->loader_start;
+   
             info->dtb_limit = image_low_addr;
         }
     }
@@ -1173,6 +1175,8 @@ static void arm_setup_direct_kernel_boot(ARMCPU *cpu,
             /* Place the DTB after the initrd in memory with alignment. */
             info->dtb_start = QEMU_ALIGN_UP(info->initrd_start + initrd_size,
                                            align);
+           //        info->dtb_start = 0x2600000;
+                  printf("****************Dtb start 0x%lx\n",info->dtb_start);
             if (info->dtb_start >= ram_end) {
                 error_report("Not enough space for DTB after kernel/initrd");
                 exit(1);
@@ -1228,7 +1232,9 @@ static void arm_setup_firmware_boot(ARMCPU *cpu, struct arm_boot_info *info)
          * the kernel is supposed to be loaded by the bootloader), copy the
          * DTB to the base of RAM for the bootloader to pick up.
          */
+
         info->dtb_start = info->loader_start;
+                                  
     }
 
     if (info->kernel_filename) {
