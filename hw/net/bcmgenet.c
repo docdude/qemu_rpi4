@@ -806,7 +806,34 @@ printf("*********bddes3 0x%lx\n",bd.des3);
     return size;
 }
 
+static void bcmgenet_reset(DeviceState *d)
+{
+    BCMGENETState *s = BCMGENET(d);
+printf("******************************RESET******************************");
+    /* Reset the BCMGENET */
+#if 0     
+    s->isr = 0;
+    s->ier = 0;
+    s->rx_enabled = 0;
+    s->rx_ring = 0;
+    s->rbsr = 0x640;
+    s->rx_descriptor = 0;
+    s->tx_ring = 0;
+    s->tx_descriptor = 0;
+    s->math[0] = 0;
+    s->math[1] = 0;
+    s->itc = 0;
+    s->aptcr = 1;
+    s->dblac = 0x00022f00;
+    s->revr = 0;
+    s->fear1 = 0;
+    s->tpafcr = 0xf1;
+#endif
 
+
+    /* and the PHY */
+    phy_reset(s);
+}
 
 
 
@@ -957,7 +984,7 @@ static uint64_t bcmgenet_mmio_intrl2_0_read(void *opaque, hwaddr addr, unsigned 
     BCMGENETState *s = opaque;
     uint32_t val;
 
-    if (!(addr <= 0x04)) {
+    if (!(addr <= 0x20)) {
         qemu_log_mask(LOG_GUEST_ERROR,
                       "Read from unknown INTRL2_0 register 0x%"HWADDR_PRIx"\n",
                       addr);
@@ -976,7 +1003,7 @@ static void bcmgenet_mmio_intrl2_0_write(void *opaque, hwaddr addr, uint64_t val
 {
     BCMGENETState *s = opaque;
 
-    if (!(addr <= 0x04)) {
+    if (!(addr <= 0x20)) {
         qemu_log_mask(LOG_GUEST_ERROR,
                       "Write to unknown INTRL2_0 register 0x%"HWADDR_PRIx"\n",
                       addr);
@@ -1436,7 +1463,7 @@ static void bcmgenet_mmio_umac_write(void *opaque, hwaddr addr, uint64_t val,
 
     case UMAC_CMD:
         if (val & (CMD_SW_RESET | CMD_LCL_LOOP_EN)) {
-         //   bcmgenet_reset(DEVICE(s));
+            bcmgenet_reset(DEVICE(s));
          printf("***********RESET detected********\n");
         }
 
@@ -1693,7 +1720,7 @@ static void bcmgenet_class_init(ObjectClass *klass, void *data)
     DeviceClass *dc = DEVICE_CLASS(klass);
 
     dc->vmsd = &vmstate_bcmgenet;
-//    dc->reset = bcmgenet_reset;
+    dc->reset = bcmgenet_reset;
     device_class_set_props(dc, bcmgenet_properties);
     set_bit(DEVICE_CATEGORY_NETWORK, dc->categories);
     dc->realize = bcmgenet_realize;

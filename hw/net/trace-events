@@ -446,6 +446,7 @@ bcmgenet_mmio_hfb_read(uint64_t addr, uint64_t val) "MMIO hfb read from 0x%"PRIx
 
 # unimac_mdio.c
 unimac_phy_write(uint8_t phy_addr, uint8_t reg, uint16_t val) "MII write addr 0x%x reg 0x%02x val 0x%04x"
+unimac_phy_aux_ctl_write(uint8_t phy_addr, uint8_t reg, uint16_t val) "MII aux_ctl write addr 0x%x reg 0x%02x val 0x%04x"
 unimac_phy_read(uint8_t phy_addr, uint8_t reg, uint16_t val) "MII read addr 0x%x reg 0x%02x val 0x%04x"
 unimac_phy_shdw_write(uint16_t val) "MII shdw write val 0x%04x"
 unimac_phy_shdw_read(uint8_t phy_addr, uint8_t reg, uint16_t val) "MII read addr 0x%x reg 0x%02x val 0x%04x"

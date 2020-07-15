@@ -31,18 +31,6 @@
 /*
  * Broadcom UniMAC MDIO bus controller
  */
-#define ASPEED_MII_PHYCR_FIRE        BIT(31)
-#define ASPEED_MII_PHYCR_ST_22       BIT(1)
-#define ASPEED_MII_PHYCR_OP(x)       ((x) & (ASPEED_MII_PHYCR_OP_WRITE | \
-                                             ASPEED_MII_PHYCR_OP_READ))
-#define ASPEED_MII_PHYCR_OP_WRITE    BIT(26)
-#define ASPEED_MII_PHYCR_OP_READ     BIT(27)
-#define ASPEED_MII_PHYCR_DATA(x)     (x & 0xffff)
-#define ASPEED_MII_PHYCR_PHY(x)      (((x) >> 21) & 0x1f)
-#define ASPEED_MII_PHYCR_REG(x)      (((x) >> 16) & 0x1f)
-
-#define ASPEED_MII_PHYDATA_IDLE      BIT(16)
-
 
 
 #define MDIO_CMD		0x00
@@ -177,7 +165,7 @@ static void phy_update_irq(BCMGENETState *s)
         qemu_set_irq(s->irq158, s->isr & s->ier);
 }
 
-static void phy_reset(BCMGENETState *s)
+void phy_reset(BCMGENETState *s)
 {
     s->phy_status = (MII_BMSR_100TX_FD | MII_BMSR_100TX_HD | MII_BMSR_10T_FD |
                      MII_BMSR_10T_HD | MII_BMSR_EXTSTAT | MII_BMSR_MFPS |
@@ -187,7 +175,11 @@ static void phy_reset(BCMGENETState *s)
     s->phy_advertise = (MII_ANAR_PAUSE_ASYM | MII_ANAR_PAUSE | MII_ANAR_TXFD |
                         MII_ANAR_TX | MII_ANAR_10FD | MII_ANAR_10 |
                         MII_ANAR_CSMACD);
-    s->phy_ecr = 0;
+    s->phy_annp = 0x2001;
+    s->phy_anlprnp = MII_ANLPAR_ACK;
+    s->phy_ctrl1000 = (MII_CTRL1000_HALF | MII_CTRL1000_FULL);
+    s->phy_extstat = 0x3000; //1000BASE-T full-duplex capable DUPLEX CAPABLE L  | 1000BASE-T half-duplex capable DUPLEX CAPABLE
+    s->phy_ecr = 0x02;
     s->phy_int = 0;
     s->phy_shdw = 0x00;
     s->phy_shdwregs[BCM54XX_SHD_APD] = 0x0001;   /* 0001 */
@@ -196,6 +188,12 @@ static void phy_reset(BCMGENETState *s)
     s->phy_shdwregs[0x08] = 0x0000;   /* 1000 */
     s->phy_shdwregs[0x09] = 0x0008;   /* 1000 */
     s->phy_shdwregs[BCM5482_SHD_LEDS1] = 0x0010; /* 10000 */
+    s->phy_aux_ctl_shdwsel[0x00] = 0x00400;
+    s->phy_aux_ctl_shdwsel[0x01] = 0x00000;
+    s->phy_aux_ctl_shdwsel[0x02] = 0x00500;
+    s->phy_aux_ctl_shdwsel[0x04] = 0x00000;
+    s->phy_aux_ctl_shdwsel[0x05] = 0x00000;    
+    s->phy_aux_ctl_shdwsel[0x07] = 0x00060;
 } 
 
 static uint16_t do_phy_shdw_write(BCMGENETState *s, uint16_t val)
@@ -280,12 +278,21 @@ static uint16_t do_phy_read(BCMGENETState *s, uint8_t phy_addr,
     case MII_ANER: /* Auto-neg Expansion */
         val = MII_ANER_NWAY;
         break;
+    case MII_ANNP:
+        val = s->phy_annp;
+        break;
+    case MII_ANLPRNP:
+        val = s->phy_anlprnp;
+        break;    
     case MII_CTRL1000: /* 1000BASE-T control  */
-        val = (MII_CTRL1000_HALF | MII_CTRL1000_FULL);
+        val = s->phy_ctrl1000;//(MII_CTRL1000_HALF | MII_CTRL1000_FULL);
         break;
     case MII_STAT1000: /* 1000BASE-T status  */
         val = MII_STAT1000_FULL;
         break;
+    case MII_EXTSTAT:
+        val = s->phy_extstat;
+        break;    
     case MII_BCM54XX_ESR:  /* PHY Extended Status Register (PHY_Addr = 0x1, Reg_Addr = 11h)  */
         val = s->phy_esr;
        // s->phy_int = 0;
@@ -299,7 +306,7 @@ static uint16_t do_phy_read(BCMGENETState *s, uint8_t phy_addr,
         val = s->phy_shdw;
         break;
     case MII_BCM54XX_EXP_DATA: 
-        val = 0x5d86; //?? 
+        val = s->phy_exp_data[s->phy_exp_selregs]; //?? 
         break;
     case MII_BCM54XX_AUX_STATUS:
         val = 0x871c;
@@ -309,6 +316,7 @@ static uint16_t do_phy_read(BCMGENETState *s, uint8_t phy_addr,
     case MII_BCM54XX_ISR:
          
          if ((s->phy_isr & 0xffff) && (s->phy_ecr >> 12))  phy_update_irq(s);
+         val = s->phy_isr;
          break;
     case MII_BCM54XX_IMR:
          val = s->phy_imr;
@@ -358,9 +366,16 @@ static void do_phy_write(BCMGENETState *s, uint8_t phy_addr, uint8_t reg, uint16
     case MII_ANAR:     /* Auto-neg advertisement */
         s->phy_advertise = (val & MII_ANAR_MASK) | MII_ANAR_TX;
         break;
+    case MII_ANNP:
+        s->phy_annp = val;
+        break;
+    case MII_ANLPRNP:
+        s->phy_anlprnp = val;
+        break;                  
     case MII_CTRL1000: /* 1000BASE-T control  */
         s->phy_ctrl1000 = val; //(MII_CTRL1000_HALF | MII_CTRL1000_FULL);
-        break;    
+        break; 
+            
     case MII_BCM54XX_ECR: /* PHY Extended Control Register (PHY_Addr = 0x1, Reg_Addr = 10h) */
         s->phy_ecr = val & 0xffff;
 
@@ -379,13 +394,32 @@ static void do_phy_write(BCMGENETState *s, uint8_t phy_addr, uint8_t reg, uint16
         s->phy_isr |= s->phy_imr;
         break;
     case MII_BCM54XX_EXP_SEL:
-         s->phy_exp_sel = val;
-         break;
+        switch (val & 0xf00) {
+        case 0x00: /* 00h “Expansion Register 00h: Receive/Transmit Packet Counter” */
+	case 0x01: /* 01h “Expansion Register 01h: Expansion Interrupt Status” */
+	case 0x03: /* 03h “Expansion Register 03h: SerDes Control” */
+	case 0x04: /* 04h “Expansion Register 04h: Multicolor LED Selector” */
+	case 0x05: /* 05h “Expansion Register 05h: Multicolor LED Flash Rate Controls” */
+	case 0x06: /* 06h “Expansion Register 06h: Multicolor LED Programmable Blink Controls” */
+	case 0x10: /* 10h “Expansion Register 10h: Cable Diagnostic Controls” */
+	case 0x11: /* 11h “Expansion Register 11h: Cable Diagnostic Results” */
+	case 0x12: /* 12h “Expansion Register 12h: Cable Diagnostic Lengths Channels 1/2” */
+	case 0x13: /*13h “Expansion Register 13h: Cable Diagnostic Lengths Channels 3/4” */
+	case MII_BCM54XX_EXP_SEL_ETC: /* 0x0d00 Expansion register spare + 2k mem */
+	case MII_BCM54XX_EXP_SEL_SSD: /* 0x0e00 Secondary SerDes select */
+
+	case MII_BCM54XX_EXP_SEL_ER: /* 0x0f00 Expansion register select */
+        	    s->phy_exp_selregs = val & 0xff; 
+        break;
+        } 
     case MII_BCM54XX_EXP_DATA: 
-         s->phy_exp_data = val;//val = 0x5d86; //?? 
+         s->phy_exp_data[s->phy_exp_selregs] = val;//val = 0x5d86; //?? 
         break;         
     case MII_BCM54XX_AUX_CTL:
-    	if ((val & 0x07) == 0x07) {
+        if (val >> 15) {  //WRITE ENABLE
+           s->phy_aux_ctl_shdwsel[val & 0x07] |= val & 0xfff;
+           s->phy_aux_ctl = s->phy_aux_ctl_shdwsel[val & 0x07];
+        } else	if ((val & 0x07) == 0x07) {
       	   switch (MII_BCM54XX_AUX_CTL_DECODE(val)) {  // Select Shadow Read Register Selector
            case 0x00: /* 000 = Normal Operation */ 
  	   case 0x01: /* 001 = 10 BASE-T Register */ 
@@ -395,16 +429,19 @@ static void do_phy_write(BCMGENETState *s, uint8_t phy_addr, uint8_t reg, uint16
 	   case 0x05: /* 101 = Misc Test Register 2. */
 	   case 0x06: /* 110 = Reserved. */
 	   case 0x07: /* 111 = Misc Control Register */
-	   s->phy_aux_ctl = s->phy_aux_ctl_shdwsel[MII_BCM54XX_AUX_CTL_DECODE(val)];
+	       s->phy_aux_ctl = s->phy_aux_ctl_shdwsel[MII_BCM54XX_AUX_CTL_DECODE(val)];
        
          
+           break;
+           default:
+               qemu_log_mask(LOG_GUEST_ERROR, "%s: Bad shadow register at offset 0x%x val 0x%x\n",
+                      __func__, reg, MII_BCM54XX_AUX_CTL_DECODE(val));
            break;
            }
            
         }
-        if (val >> 15) {  //WRITE ENABLE
-           s->phy_aux_ctl_shdwsel[val & 0x07] |= val & 0xfff;
-        }               
+        trace_unimac_phy_aux_ctl_write(phy_addr, reg, val);
+           
         break;       
 //        qemu_log_mask(LOG_UNIMP, "%s: reg 0x%x not implemented val 0x%x\n",
 //                      __func__, reg, val);

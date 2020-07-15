@@ -74,7 +74,10 @@ typedef struct BCMGENETState {
     bool unimac_mdio;
     uint32_t phy_status;
     uint32_t phy_control;
-    uint32_t phy_ctrl1000;    
+    uint32_t phy_annp;
+    uint32_t phy_anlprnp;
+    uint32_t phy_ctrl1000;  
+    uint32_t phy_extstat;  
     uint32_t phy_advertise;
     uint32_t phy_int;
     uint32_t phy_ecr;
@@ -85,7 +88,8 @@ typedef struct BCMGENETState {
     uint32_t phy_aux_ctl_shdwsel[8];
     uint32_t phy_aux_ctl;
     uint32_t phy_exp_sel;
-    uint32_t phy_exp_data;
+    uint32_t phy_exp_selregs;
+    uint32_t phy_exp_data[20];
 
     uint32_t phy_shdwregs[16];     
 } BCMGENETState; 
@@ -114,5 +118,6 @@ typedef struct UNIMACState {
 
 } UNIMACState;
 
+void phy_reset(BCMGENETState *);
 
 #endif
