@@ -300,12 +300,13 @@
 
 
 
-#if 0
-static void phy_update_irq(BCMGENETState *s)
-{
-    qemu_set_irq(s->irq, s->isr & s->ier);
-}
 
+static void bcmgenet_update_irq(BCMGENETState *s)
+{
+    qemu_set_irq(s->irq157, 1);
+    qemu_set_irq(s->irq158, 1);
+}
+#if 0
 static void phy_update_link(BCMGENETState *s)
 {
     /* Autonegotiation status mirrors link status.  */
@@ -829,7 +830,8 @@ printf("******************************RESET******************************");
     s->fear1 = 0;
     s->tpafcr = 0xf1;
 #endif
-
+    s->intrl2_0regs[INTRL2_CPU_STAT >> 2] = 0x802000;
+    s->intrl2_0regs[INTRL2_CPU_MASK_STATUS >> 2] = 0x7feffff;
 
     /* and the PHY */
     phy_reset(s);
@@ -1023,8 +1025,22 @@ static void bcmgenet_mmio_intrl2_0_write(void *opaque, hwaddr addr, uint64_t val
 
     /* Post write action */
     switch (addr) {
-    case INTRL2_0_INST:
+    case INTRL2_CPU_STAT:
+    break;			
+    case INTRL2_CPU_SET:
+    break;			
+    case INTRL2_CPU_CLEAR:
+        qemu_set_irq(s->irq157, 0);
+    qemu_set_irq(s->irq158, 0);
+    break;		
+    case INTRL2_CPU_MASK_STATUS:
+    break;		
+    case INTRL2_CPU_MASK_SET:
+        break;		
+    case INTRL2_CPU_MASK_CLEAR:
+        bcmgenet_update_irq(s);		
         break;
+
     }
 }
 
@@ -1088,8 +1104,10 @@ static void bcmgenet_mmio_intrl2_1_write(void *opaque, hwaddr addr, uint64_t val
     case INTRL2_CPU_SET:			
     case INTRL2_CPU_CLEAR:		
     case INTRL2_CPU_MASK_STATUS:		
-    case INTRL2_CPU_MASK_SET:		
-    case INTRL2_CPU_MASK_CLEAR:		
+    case INTRL2_CPU_MASK_SET:
+        break;		
+    case INTRL2_CPU_MASK_CLEAR:
+        bcmgenet_update_irq(s);		
         break;
     }
 }

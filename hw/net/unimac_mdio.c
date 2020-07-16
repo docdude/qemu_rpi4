@@ -194,6 +194,7 @@ void phy_reset(BCMGENETState *s)
     s->phy_aux_ctl_shdwsel[0x04] = 0x00000;
     s->phy_aux_ctl_shdwsel[0x05] = 0x00000;    
     s->phy_aux_ctl_shdwsel[0x07] = 0x00060;
+    s->phy_exp_data[0x42] = 0x4006;
 } 
 
 static uint16_t do_phy_shdw_write(BCMGENETState *s, uint16_t val)
@@ -271,7 +272,7 @@ static uint16_t do_phy_read(BCMGENETState *s, uint8_t phy_addr,
         val = s->phy_advertise;
         break;
     case MII_ANLPAR: /* Auto-neg Link Partner Ability */
-        val = (MII_ANLPAR_ACK | MII_ANLPAR_PAUSE | MII_ANLPAR_TXFD |
+        val = (MII_ANLPAR_NEXT_PAGE | MII_ANLPAR_ACK | MII_ANLPAR_PAUSE | MII_ANLPAR_TXFD |
                MII_ANLPAR_TX | MII_ANLPAR_10FD | MII_ANLPAR_10 |
                MII_ANLPAR_CSMACD);
         break;
@@ -309,7 +310,7 @@ static uint16_t do_phy_read(BCMGENETState *s, uint8_t phy_addr,
         val = s->phy_exp_data[s->phy_exp_selregs]; //?? 
         break;
     case MII_BCM54XX_AUX_STATUS:
-        val = 0x871c;
+        val = 0xff1f;
         break;
     
 
@@ -339,7 +340,7 @@ static uint16_t do_phy_read(BCMGENETState *s, uint8_t phy_addr,
 
 
 
-#define MII_BMCR_MASK (MII_BMCR_LOOPBACK | MII_BMCR_SPEED100 |          \
+#define MII_BMCR_MASK (MII_BMCR_LOOPBACK | MII_BMCR_SPEED100 | MII_BMCR_SPEED1000  |       \
                        MII_BMCR_SPEED | MII_BMCR_AUTOEN | MII_BMCR_PDOWN | \
                        MII_BMCR_FD | MII_BMCR_CTST)
 #define MII_ANAR_MASK 0x2d7f
@@ -412,6 +413,7 @@ static void do_phy_write(BCMGENETState *s, uint8_t phy_addr, uint8_t reg, uint16
         	    s->phy_exp_selregs = val & 0xff; 
         break;
         } 
+        break;
     case MII_BCM54XX_EXP_DATA: 
          s->phy_exp_data[s->phy_exp_selregs] = val;//val = 0x5d86; //?? 
         break;         

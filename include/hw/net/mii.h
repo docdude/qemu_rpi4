@@ -87,7 +87,7 @@
 #define MII_ANAR_10         (1 << 5)
 #define MII_ANAR_CSMACD     (1 << 0)
 
-#define MII_ANLPAR_NEXT_PAGE (1 << 16)
+#define MII_ANLPAR_NEXT_PAGE (1 << 15)
 #define MII_ANLPAR_ACK      (1 << 14)
 #define MII_ANLPAR_PAUSEASY (1 << 11) /* can pause asymmetrically */
 #define MII_ANLPAR_PAUSE    (1 << 10) /* can pause */
