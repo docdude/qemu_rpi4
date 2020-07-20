@@ -418,7 +418,7 @@ bcmgenet_rx_bad_frame_size(size_t size) "RX bad frame size %zu, dropped"
 bcmgenet_rx_unmatched(void) "No match, dropped"
 bcmgenet_rx_process(uint32_t cons_idx, uint32_t prod_idx) "RX processing cons_idx=%"PRIu32", prod_idx=%"PRIu32
 bcmgenet_rx_ringfull(void) "RX ring full"
-bcmgenet_rx_desc(uint64_t control, uint64_t buffer) "RX desc: 0x%"PRIx64" 0x%"PRIx64
+bcmgenet_rx_desc(uint64_t control, uint32_t flags, uint64_t buffer) "RX desc: 0x%"PRIx64" DMA_FLAGS 0x%"PRIx32" 0x%"PRIx64
 bcmgenet_rx_reset(void) "RX reset"
 bcmgenet_rx_kick(uint64_t val) "RXDMA_KICK written to %"PRIu64
 bcmgenet_reset(bool pci_reset) "Full reset (PCI:%d)"

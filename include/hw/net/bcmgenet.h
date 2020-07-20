@@ -33,19 +33,20 @@ typedef struct BCMGENETState {
 
     NICState *nic;
     NICConf conf;
-    qemu_irq irq, irq157, irq158;    
-    MemoryRegion bcmgenet;
-    MemoryRegion sys;
-    MemoryRegion ext;
-    MemoryRegion intrl2_0;  
-    MemoryRegion intrl2_1;            
-    MemoryRegion tdma;
-    MemoryRegion rdma;
-    MemoryRegion umac;
-    MemoryRegion rbuf;
-    MemoryRegion tbuf;
-    MemoryRegion hfb;    
-
+    qemu_irq irq, intrl2_0, intrl2_1; 
+    MemoryRegion bcmgenet;   
+    struct {  
+	MemoryRegion sys;
+    	MemoryRegion ext;
+    	MemoryRegion intrl2_0;  
+    	MemoryRegion intrl2_1;            
+    	MemoryRegion tdma;
+    	MemoryRegion rdma;
+    	MemoryRegion umac;
+    	MemoryRegion rbuf;
+    	MemoryRegion tbuf;
+    	MemoryRegion hfb;    
+    } iomem; 
     uint32_t isr;
     uint32_t ier;   
     uint32_t phy_addr;

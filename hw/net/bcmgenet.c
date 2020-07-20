@@ -20,6 +20,7 @@
 #include "sysemu/sysemu.h"
 #include "sysemu/dma.h"
 #include "trace.h"
+#include "qemu-common.h"
 #include "hw/net/bcmgenet.h"
 //#include "hw/net/unimac_mdio.h"
 
@@ -292,20 +293,102 @@
 #define HFBFLTLEN	0xFC1C
 
 
-
-/* ?????????????????????????
- * Max frame size for the receiving buffer
- */
-//#define BCMGENET_MAX_FRAME_SIZE    9220
-
-
-
-
-static void bcmgenet_update_irq(BCMGENETState *s)
+static void bcmgenet_set_irq(BCMGENETState *s, int reg)
 {
-    qemu_set_irq(s->irq157, 1);
-    qemu_set_irq(s->irq158, 1);
+    if (reg) {
+      qemu_set_irq(s->intrl2_1, 1);
+    } else {
+      qemu_set_irq(s->intrl2_0, 1);
+    }
 }
+
+static void bcmgenet_clear_irq(BCMGENETState *s, int reg)
+{
+    if (reg) {
+      qemu_set_irq(s->intrl2_1, 0);
+    } else {
+      qemu_set_irq(s->intrl2_0, 0);
+    }
+}
+
+static void bcmgenet_eval_irq(BCMGENETState *s, int reg)
+{
+    uint32_t stat, mask;
+
+    if (reg) {
+      mask = s->intrl2_1regs[INTRL2_CPU_MASK_STATUS >> 2];
+      stat = s->intrl2_1regs[INTRL2_CPU_STAT >> 2]; //& ~UMAC_IRQ_TXDMA_DONE;
+      if (stat & ~mask) {
+        bcmgenet_set_irq(s, 1);
+      } else {
+        bcmgenet_clear_irq(s, 1);
+      }
+    } else {
+      mask = s->intrl2_0regs[INTRL2_CPU_MASK_STATUS >> 2];
+      stat = s->intrl2_0regs[INTRL2_CPU_STAT >> 2]; //& ~UMAC_IRQ_TXDMA_DONE;
+      if (stat & ~mask) {
+        bcmgenet_set_irq(s,0);
+      } else {
+        bcmgenet_clear_irq(s,0);
+      }
+    }
+    
+}
+
+static void bcmgenet_update_status(BCMGENETState *s, uint32_t bits, bool val, int reg)
+{
+    uint32_t stat;
+
+    if (reg) {
+      stat = s->intrl2_1regs[INTRL2_CPU_STAT >> 2];
+      if (val) {
+        stat |= bits;
+      } else {
+        stat &= ~bits;
+      }
+
+      s->intrl2_1regs[INTRL2_CPU_STAT >> 2] = stat;
+      bcmgenet_eval_irq(s, 1);
+    } else {
+      stat = s->intrl2_0regs[INTRL2_CPU_STAT >> 2];
+      if (val) {
+        stat |= bits;
+      } else {
+        stat &= ~bits;
+      }
+
+      s->intrl2_0regs[INTRL2_CPU_STAT >> 2] = stat;
+      bcmgenet_eval_irq(s, 0);
+    }
+}
+
+static void bcmgenet_update_mask_status(BCMGENETState *s, uint32_t bits, bool val, int reg)
+{
+    uint32_t stat;
+
+    if (reg) {
+      stat = s->intrl2_1regs[INTRL2_CPU_MASK_STATUS >> 2];
+      if (val) {
+        stat |= bits;
+      } else {
+        stat &= ~bits;
+      }
+
+      s->intrl2_1regs[INTRL2_CPU_MASK_STATUS >> 2] = stat;
+      bcmgenet_eval_irq(s, 1);
+    } else {
+      stat = s->intrl2_0regs[INTRL2_CPU_MASK_STATUS >> 2];
+      if (val) {
+        stat |= bits;
+      } else {
+        stat &= ~bits;
+      }
+
+      s->intrl2_0regs[INTRL2_CPU_MASK_STATUS >> 2] = stat;
+      bcmgenet_eval_irq(s, 0);
+    }
+}
+
 #if 0
 static void phy_update_link(BCMGENETState *s)
 {
@@ -319,13 +402,13 @@ static void phy_update_link(BCMGENETState *s)
     }
     phy_update_irq(s);
 }
-
-static void bmcgenet_set_link(NetClientState *nc)
-{
-    phy_update_link(BCMGENETState(qemu_get_nic_opaque(nc)));
+#endif
+static void bcmgenet_set_link_status(NetClientState *nc)
+{   /* OS driver does not use phy interrupt */
+   // phy_update_link(BCMGENETState(qemu_get_nic_opaque(nc)));
 }
 
-#endif
+
 
 #if 1
 /*
@@ -379,7 +462,7 @@ static void bcmgenet_do_tx(BCMGENETState *s)
     dma_addr_t addr;
     int frame_size = 0;
     uint8_t *ptr = s->frame;
-    uint32_t tdma_cfg, umac_cfg;  
+    uint32_t tdma_cfg, umac_cfg, ints;  
     uint32_t prod_idx, cons_idx;  
 //    uint32_t flags = 0;
     uint32_t dma_len_stat;
@@ -420,7 +503,7 @@ printf("***********descbase 0x%x addrlo 0x%lx addrhi 0x%lx dma_len_stat 0x%x\n",
      * can in one go, like e1000. Ideally we should do the sending
      * from some kind of background task
      */
-  //  while (cons_idx!= prod_idx) {
+ //   while (cons_idx != prod_idx) {
         BCMGENETDesc bd;
         int len;
 #if DEBUG        
@@ -449,7 +532,8 @@ printf("********in loop addr 0x%lx len_stat 0x%x prod_idx 0x%x\n",addr,dma_len_s
    //     s->frame_size = 0;
      //   s->tx_first_ctl = dma_len_stat;
   //  }
-
+        trace_bcmgenet_tx_desc(cons_idx, le32_to_cpu(dma_len_stat), le32_to_cpu(addr));
+        
         len = (dma_len_stat >> DMA_BUFLENGTH_SHIFT) & DMA_BUFLENGTH_MASK;;
         if (frame_size + len > sizeof(s->frame)) {
             qemu_log_mask(LOG_GUEST_ERROR, "%s: frame too big : %d bytes\n",
@@ -464,7 +548,7 @@ printf("********in loop addr 0x%lx len_stat 0x%x prod_idx 0x%x\n",addr,dma_len_s
  //           s->isr |= FTGMAC100_INT_NO_NPTXBUF;
             return;
         }
-
+    qemu_hexdump((void *)ptr, stderr, "", len);
         ptr += len;
         frame_size += len;
         if (dma_len_stat & DMA_EOP) {
@@ -498,13 +582,21 @@ dma_memory_write(&address_space_memory, addr, ptr, sizeof(ptr));
         /* Next ! */
         /* Advance to the next descriptor.  */
         /* Next ! */
-   //     cons_idx = (cons_idx + 1) & DMA_C_INDEX_MASK;
-    //    s->tdmaregs[TDMA_CONS_INDEX >> 2] = cons_idx;
-              //  s->rdmaregs[RDMA_PROD_INDEX >> 2] = prod_idx;     
+      cons_idx = (cons_idx + 1) & DMA_C_INDEX_MASK;
+        s->tdmaregs[TDMA_CONS_INDEX >> 2] = cons_idx;
+         //       s->rdmaregs[RDMA_PROD_INDEX >> 2] = prod_idx;     
  //   }
 
+        /* Interrupt */
+        ints = 1 << prod_idx;//UMAC_IRQ_TXDMA_DONE;
+    //    if (desc.control_word & TXDCTRL_INTME) {
+      //      ints |= GREG_STAT_TXINTME;
+       // }
+        bcmgenet_update_status(s, ints, true, 1);
+    //}
     /* We sent everything, set status/irq bit */
- //   sungem_update_status(s, GREG_STAT_TXALL, true);
+  //  if (cons_idx == prod_idx)
+    bcmgenet_update_status(s, UMAC_IRQ_TXDMA_DONE, true, 0);
 }
 #endif
 
@@ -631,14 +723,14 @@ static ssize_t bcmgenet_receive(NetClientState *nc, const uint8_t *buf,
     BCMGENETState *s = qemu_get_nic_opaque(nc);
 
     uint32_t mac_crc, cons_idx, prod_idx, max_fsize;
-    uint32_t fcs_size, /*ints,*/ rdma_cfg, umac_cfg, /*csum, coff,*/ buf_len, dma_len_stat;
+    uint32_t fcs_size, ints, rdma_cfg, umac_cfg; /*csum, coff,*/ 
     uint8_t smallbuf[60];
     BCMGENETDesc bd;
   
     unsigned int rx_cond;
     dma_addr_t addr;
-    uint32_t desc_base;//, buf_addr;
-    
+    uint32_t desc_base, buf_len, dma_len_stat, dma_flags;
+
     trace_bcmgenet_rx_packet(size);
 
     max_fsize = s->umacregs[UMAC_MAX_FRAME_LEN >> 2] & 0x7fff;
@@ -697,6 +789,7 @@ printf("%02x",buf[i]);
 printf("\n");
 #endif
 #if 1
+
     /* Get MAC crc */
     mac_crc = net_crc32_le(buf, ETH_ALEN);
 
@@ -712,10 +805,30 @@ printf("\n");
     prod_idx = s->rdmaregs[RDMA_PROD_INDEX >> 2] & DMA_P_INDEX_MASK;
     cons_idx = s->rdmaregs[RDMA_CONS_INDEX >> 2] & DMA_C_INDEX_MASK;
     trace_bcmgenet_rx_process(cons_idx, prod_idx);
+    if (rx_cond == rx_match_mac) {
+        desc_base = (prod_idx) * DMA_DESC_SIZE;
+#if DEBUG    
+printf("RX descbase 0x%x prod_idx 0x%x\n",desc_base,prod_idx);
+#endif
+    addr = s->rdmaregs[(desc_base + DMA_DESC_ADDRESS_HI) >> 2];
+    addr = (addr << 32) | s->rdmaregs[(desc_base + DMA_DESC_ADDRESS_LO) >> 2];      
+    dma_len_stat = s->rdmaregs[(desc_base + DMA_DESC_LENGTH_STATUS) >> 2];
+    /* Read the next descriptor */
+
+
+
+
+    qemu_hexdump((void *)buf, stderr, "", size);
         cons_idx = (cons_idx + 1) & DMA_C_INDEX_MASK;
         s->rdmaregs[RDMA_CONS_INDEX >> 2] = cons_idx; 
                 prod_idx = (prod_idx + 1) & DMA_P_INDEX_MASK;
-        s->rdmaregs[RDMA_PROD_INDEX >> 2] = prod_idx;  
+        s->rdmaregs[RDMA_PROD_INDEX >> 2] = prod_idx; 
+            ints = UMAC_IRQ_RXDMA_DONE;
+//    if (sungem_rx_full(s, kick, done)) {
+ //       ints |= GREG_STAT_RXNOBUF;
+ //   }
+    bcmgenet_update_status(s, ints, true, 0);
+    }     
     /* Ring full ? Can't receive */
     if (bcmgenet_rx_full(s, prod_idx, cons_idx)) {
         trace_bcmgenet_rx_ringfull();
@@ -727,26 +840,16 @@ printf("\n");
      * cope
      */
  
-    desc_base = prod_idx * DMA_DESC_SIZE;
-#if DEBUG    
-printf("RX descbase 0x%x prod_idx 0x%x\n",desc_base,prod_idx);
-#endif
-    addr = s->rdmaregs[(desc_base + DMA_DESC_ADDRESS_HI) >> 2];
-    addr = (addr << 32) | s->rdmaregs[(desc_base + DMA_DESC_ADDRESS_LO) >> 2];      
-    dma_len_stat = s->rdmaregs[(desc_base + DMA_DESC_LENGTH_STATUS) >> 2];
-    /* Read the next descriptor */
-//    pci_dma_read(d, dbase + done * sizeof(desc), &desc, sizeof(desc));
-#if DEBUG      
-printf("***********RX descbase 0x%x addrlo 0x%lx addrhi 0x%lx dma_len_stat 0x%x\n",desc_base,addr>>32, addr,dma_len_stat);
-    
-#endif
+
     /* Effective buffer address */
 //    baddr = le64_to_cpu(desc.buffer) & ~7ull;
  //   baddr |= (rxdma_cfg & RXDMA_CFG_FBOFF) >> 10;
 
 
- 
-
+     dma_flags = (dma_len_stat >> DMA_RING_BUF_EN_SHIFT) & DMA_RING_BUF_EN_MASK;
+    buf_len = (dma_len_stat >> DMA_BUFLENGTH_SHIFT) & DMA_BUFLENGTH_MASK;
+    size -= buf_len;
+    trace_bcmgenet_rx_desc(le32_to_cpu(dma_len_stat), dma_flags, le32_to_cpu(addr));
 
     if (fcs_size) {
         /* Should we add an FCS ? Linux doesn't ask us to strip it,
@@ -754,9 +857,8 @@ printf("***********RX descbase 0x%x addrlo 0x%lx addrhi 0x%lx dma_len_stat 0x%x\
          * do nothing. It's faster this way.
          */
     }
- //buf_len = 0x40;
-        buf_len = (dma_len_stat >> DMA_BUFLENGTH_SHIFT) & DMA_BUFLENGTH_MASK;
-        size -= buf_len;
+    
+
 
         /* The last 4 bytes are the CRC.  */
         if (size < 4) {
@@ -780,6 +882,7 @@ printf("***********RX descbase 0x%x addrlo 0x%lx addrhi 0x%lx dma_len_stat 0x%x\
 //    desc.status_word = cpu_to_le64(desc.status_word);
 
 //    pci_dma_write(d, dbase + done * sizeof(desc), &desc, sizeof(desc));
+
    dma_memory_write(&address_space_memory, addr+2, buf, buf_len);
       bcmgenet_read_bd(&bd, addr);
 #if DEBUG      
@@ -788,21 +891,17 @@ printf("*********bddes1 0x%lx\n",bd.des1);
 printf("*********bddes2 0x%lx\n",bd.des2);
 printf("*********bddes3 0x%lx\n",bd.des3); 
 #endif
-    trace_bcmgenet_rx_desc(le32_to_cpu(dma_len_stat),
-                         le32_to_cpu(addr));
+
     /* Write buffer out */
 //        bcmgenet_write_bd(&bd, addr);
-
+    //            prod_idx = (prod_idx + 1) & DMA_P_INDEX_MASK;
+    //    s->rdmaregs[RDMA_PROD_INDEX >> 2] = prod_idx; 
 
     /* XXX Unconditionally set RX interrupt for now. The interrupt
      * mitigation timer might well end up adding more overhead than
      * helping here...
      */
-//    ints = GREG_STAT_RXDONE;
-  //  if (sungem_rx_full(s, kick, done)) {
-  //      ints |= GREG_STAT_RXNOBUF;
-  //  }
-  //  sungem_update_status(s, ints, true);
+
 
     return size;
 }
@@ -830,9 +929,15 @@ printf("******************************RESET******************************");
     s->fear1 = 0;
     s->tpafcr = 0xf1;
 #endif
-    s->intrl2_0regs[INTRL2_CPU_STAT >> 2] = 0x802000;
-    s->intrl2_0regs[INTRL2_CPU_MASK_STATUS >> 2] = 0x7feffff;
-
+    s->umacregs[UMAC_CMD >> 2] = 0x10000d8;
+    s->rbufregs[RBUF_CTRL>> 2] = 0xc040;
+    s->extregs[EXT_RGMII_OOB_CTRL >> 2] = 0xf00000;
+    s->intrl2_0regs[INTRL2_CPU_STAT >> 2] = 0x800000; //0x802000;  //0
+    s->intrl2_0regs[INTRL2_CPU_MASK_STATUS >> 0x02] = 0x67fffff; //0x7feffff;  //3
+    s->intrl2_0regs[(INTRL2_CPU_CLEAR >> 2) + 0x04] = 0x800024; //2
+    s->intrl2_0regs[(INTRL2_CPU_SET >> 2) + 0x08] = 0x7ffffff;    //1
+        s->intrl2_1regs[INTRL2_CPU_MASK_STATUS >> 2] = 0xffffffff;
+    s->intrl2_1regs[(INTRL2_CPU_SET >> 2) + 0x08] = 0xffffffff;    //1        
     /* and the PHY */
     phy_reset(s);
 }
@@ -986,7 +1091,7 @@ static uint64_t bcmgenet_mmio_intrl2_0_read(void *opaque, hwaddr addr, unsigned 
     BCMGENETState *s = opaque;
     uint32_t val;
 
-    if (!(addr <= 0x20)) {
+    if (!(addr <= 0x40)) {
         qemu_log_mask(LOG_GUEST_ERROR,
                       "Read from unknown INTRL2_0 register 0x%"HWADDR_PRIx"\n",
                       addr);
@@ -994,7 +1099,15 @@ static uint64_t bcmgenet_mmio_intrl2_0_read(void *opaque, hwaddr addr, unsigned 
     }
 
     val = s->intrl2_0regs[addr >> 2];
-
+    switch (addr) {
+    case INTRL2_CPU_STAT:
+         bcmgenet_eval_irq(s, 0);
+        // val = val & ~UMAC_IRQ_TXDMA_DONE;
+    break;
+    case INTRL2_CPU_MASK_STATUS:
+        bcmgenet_eval_irq(s,0);
+    break;	    
+    }
     trace_bcmgenet_mmio_intrl2_0_read(GENET_INTRL2_0_OFF + addr, val);
 
     return val;
@@ -1005,7 +1118,7 @@ static void bcmgenet_mmio_intrl2_0_write(void *opaque, hwaddr addr, uint64_t val
 {
     BCMGENETState *s = opaque;
 
-    if (!(addr <= 0x20)) {
+    if (!(addr <= 0x40)) {
         qemu_log_mask(LOG_GUEST_ERROR,
                       "Write to unknown INTRL2_0 register 0x%"HWADDR_PRIx"\n",
                       addr);
@@ -1030,15 +1143,16 @@ static void bcmgenet_mmio_intrl2_0_write(void *opaque, hwaddr addr, uint64_t val
     case INTRL2_CPU_SET:
     break;			
     case INTRL2_CPU_CLEAR:
-        qemu_set_irq(s->irq157, 0);
-    qemu_set_irq(s->irq158, 0);
+            bcmgenet_update_status(s, val, false, 0);
     break;		
     case INTRL2_CPU_MASK_STATUS:
+        bcmgenet_eval_irq(s,0);
     break;		
     case INTRL2_CPU_MASK_SET:
+                bcmgenet_update_mask_status(s, val, true, 0);
         break;		
     case INTRL2_CPU_MASK_CLEAR:
-        bcmgenet_update_irq(s);		
+                bcmgenet_update_mask_status(s, val, false, 0);
         break;
 
     }
@@ -1062,7 +1176,7 @@ static uint64_t bcmgenet_mmio_intrl2_1_read(void *opaque, hwaddr addr, unsigned 
     BCMGENETState *s = opaque;
     uint32_t val;
 
-    if (!(addr <= 0x1c)) {
+    if (!(addr <= 0x100)) {
         qemu_log_mask(LOG_GUEST_ERROR,
                       "Read from unknown INTRL2_1 register 0x%"HWADDR_PRIx"\n",
                       addr);
@@ -1070,6 +1184,15 @@ static uint64_t bcmgenet_mmio_intrl2_1_read(void *opaque, hwaddr addr, unsigned 
     }
 
     val = s->intrl2_1regs[addr >> 2];
+    switch (addr) {
+    case INTRL2_CPU_STAT:
+         bcmgenet_eval_irq(s, 1);
+     //    val = val & ~UMAC_IRQ_TXDMA_DONE;
+    break;
+    case INTRL2_CPU_MASK_STATUS:
+        bcmgenet_eval_irq(s,1);
+    break;	    
+    }    
 
     trace_bcmgenet_mmio_intrl2_1_read(GENET_INTRL2_1_OFF + addr, val);
 
@@ -1081,7 +1204,7 @@ static void bcmgenet_mmio_intrl2_1_write(void *opaque, hwaddr addr, uint64_t val
 {
     BCMGENETState *s = opaque;
 
-    if (!(addr <= 0x1c)) {
+    if (!(addr <= 0x100)) {
         qemu_log_mask(LOG_GUEST_ERROR,
                       "Write to unknown INTRL2_1 register 0x%"HWADDR_PRIx"\n",
                       addr);
@@ -1100,14 +1223,21 @@ static void bcmgenet_mmio_intrl2_1_write(void *opaque, hwaddr addr, uint64_t val
 
     /* Post write action */
     switch (addr) {
-    case INTRL2_CPU_STAT:			
-    case INTRL2_CPU_SET:			
-    case INTRL2_CPU_CLEAR:		
-    case INTRL2_CPU_MASK_STATUS:		
+    case INTRL2_CPU_STAT:	
+        break;		
+    case INTRL2_CPU_SET:	
+        break;		
+    case INTRL2_CPU_CLEAR:
+            bcmgenet_update_status(s, val, false, 1);
+        break;		
+    case INTRL2_CPU_MASK_STATUS:
+        bcmgenet_eval_irq(s,1);	
+        break;	
     case INTRL2_CPU_MASK_SET:
+                bcmgenet_update_mask_status(s, val, true, 1);
         break;		
     case INTRL2_CPU_MASK_CLEAR:
-        bcmgenet_update_irq(s);		
+                bcmgenet_update_mask_status(s, val, false, 1);
         break;
     }
 }
@@ -1294,14 +1424,14 @@ static void bcmgenet_mmio_tdma_write(void *opaque, hwaddr addr, uint64_t val,
 	
     case TDMA_PROD_INDEX:
          /* TODO: high priority tx ring */  
-printf("**********transmit********8 0x%x\n",TDMA_PROD_INDEX);
+printf("**********transmit********8 0x%lx\n",val);
         
          bcmgenet_do_tx(s);
             //     cons_idx = (cons_idx + 1) & DMA_C_INDEX_MASK;
-        s->tdmaregs[TDMA_CONS_INDEX >> 2] += 1;
-        if (bcmgenet_can_receive(qemu_get_queue(s->nic))) {
-            qemu_flush_queued_packets(qemu_get_queue(s->nic));
-        }
+     //   s->tdmaregs[TDMA_CONS_INDEX >> 2] += 1;
+     //   if (bcmgenet_can_receive(qemu_get_queue(s->nic))) {
+       //     qemu_flush_queued_packets(qemu_get_queue(s->nic));
+      //  }
          break;
     case TDMA_READ_PTR:
     case TDMA_CONS_INDEX:	         
@@ -1397,13 +1527,20 @@ static void bcmgenet_mmio_rdma_write(void *opaque, hwaddr addr, uint64_t val,
     case RDMA_WRITE_PTR:			
 
     case RDMA_RING_CFG:			
-    case RDMA_CTRL:			
+      
+        		
     case RDMASTATUS:	             
     case RDMA_SCB_BURST_SIZE:	
     case RDMATIMEOUT0:
     case RDMAINDEX2RING0:    
 
         break;
+    case RDMA_CTRL:
+        if ((s->rdmaregs[RDMA_CTRL >> 2] & DMA_EN) != 0 &&
+            (s->umacregs[UMAC_CMD >> 2] & CMD_RX_EN) != 0) {	
+            qemu_flush_queued_packets(qemu_get_queue(s->nic));
+        }
+        break;              
     }
 }
 
@@ -1484,7 +1621,10 @@ static void bcmgenet_mmio_umac_write(void *opaque, hwaddr addr, uint64_t val,
             bcmgenet_reset(DEVICE(s));
          printf("***********RESET detected********\n");
         }
-
+        if ((s->rdmaregs[RDMA_CTRL >> 2] & DMA_EN) != 0 &&
+            (s->umacregs[UMAC_CMD >> 2] & CMD_RX_EN) != 0) {	
+            qemu_flush_queued_packets(qemu_get_queue(s->nic));
+        }
     //    if (bcmgenet_can_receive(qemu_get_queue(s->nic))) {
       //      qemu_flush_queued_packets(qemu_get_queue(s->nic));
        // }			
@@ -1589,8 +1729,6 @@ static const MemoryRegionOps bcmgenet_mmio_hfb_ops = {
 };
 
 
-
- 
 #endif
 #if 0
 static void bcmgenet_init(Object *obj)
@@ -1615,7 +1753,7 @@ static NetClientInfo net_bcmgenet_info = {
     .can_receive = bcmgenet_can_receive,
     .receive = bcmgenet_receive,
     .cleanup = bcmgenet_cleanup,
-//    .link_status_changed = bcmgenet_set_link,
+    .link_status_changed = bcmgenet_set_link_status,
 };
 
 static void bcmgenet_realize(DeviceState *dev, Error **errp)
@@ -1626,45 +1764,46 @@ static void bcmgenet_realize(DeviceState *dev, Error **errp)
 //    bcmgenet_reset_all(s, true);
     memory_region_init(&s->bcmgenet, OBJECT(s), "bcmgenet", GENET_MMIO_SIZE);
 
-    memory_region_init_io(&s->sys, OBJECT(s), &bcmgenet_mmio_sys_ops, s,
+    memory_region_init_io(&s->iomem.sys, OBJECT(s), &bcmgenet_mmio_sys_ops, s,
                           "bmcgenet.sys", BCMGENET_MMIO_SYS_SIZE);
-    memory_region_add_subregion(&s->bcmgenet, GENET_SYS_OFF, &s->sys);
+    memory_region_add_subregion(&s->bcmgenet, GENET_SYS_OFF, &s->iomem.sys);
 //    sysbus_init_mmio(sbd, &s->sys);
 
-    memory_region_init_io(&s->ext, OBJECT(s), &bcmgenet_mmio_ext_ops, s,
+    memory_region_init_io(&s->iomem.ext, OBJECT(s), &bcmgenet_mmio_ext_ops, s,
                           "bcmgenet.ext", BCMGENET_MMIO_EXT_SIZE);
-    memory_region_add_subregion(&s->bcmgenet, GENET_EXT_OFF, &s->ext);
+    memory_region_add_subregion(&s->bcmgenet, GENET_EXT_OFF, &s->iomem.ext);
    
-    memory_region_init_io(&s->intrl2_0, OBJECT(s), &bcmgenet_mmio_intrl2_0_ops, s,
+    memory_region_init_io(&s->iomem.intrl2_0, OBJECT(s), &bcmgenet_mmio_intrl2_0_ops, s,
                           "bcmgenet.intrl2_0", BCMGENET_MMIO_INTRL2_0_SIZE);
-    memory_region_add_subregion(&s->bcmgenet, GENET_INTRL2_0_OFF, &s->intrl2_0);
+    memory_region_add_subregion(&s->bcmgenet, GENET_INTRL2_0_OFF, &s->iomem.intrl2_0);
 
-    memory_region_init_io(&s->intrl2_1, OBJECT(s), &bcmgenet_mmio_intrl2_1_ops, s,
+    memory_region_init_io(&s->iomem.intrl2_1, OBJECT(s), &bcmgenet_mmio_intrl2_1_ops, s,
                           "bcmgenet.intrl2_1", BCMGENET_MMIO_INTRL2_1_SIZE);
-    memory_region_add_subregion(&s->bcmgenet, GENET_INTRL2_1_OFF, &s->intrl2_1);  
+    memory_region_add_subregion(&s->bcmgenet, GENET_INTRL2_1_OFF, &s->iomem.intrl2_1);  
    
-    memory_region_init_io(&s->tdma, OBJECT(s), &bcmgenet_mmio_tdma_ops, s,
+    memory_region_init_io(&s->iomem.tdma, OBJECT(s), &bcmgenet_mmio_tdma_ops, s,
                           "bcmgenet.tdma", BCMGENET_MMIO_TDMA_SIZE);
-    memory_region_add_subregion(&s->bcmgenet, GENET_TX_OFF, &s->tdma);
+    memory_region_add_subregion(&s->bcmgenet, GENET_TX_OFF, &s->iomem.tdma);
 
-    memory_region_init_io(&s->rdma, OBJECT(s), &bcmgenet_mmio_rdma_ops, s,
+    memory_region_init_io(&s->iomem.rdma, OBJECT(s), &bcmgenet_mmio_rdma_ops, s,
                           "bcmgenet.rdma", BCMGENET_MMIO_RDMA_SIZE);
-    memory_region_add_subregion(&s->bcmgenet, GENET_RX_OFF, &s->rdma);
+    memory_region_add_subregion(&s->bcmgenet, GENET_RX_OFF, &s->iomem.rdma);
 
-    memory_region_init_io(&s->umac, OBJECT(s), &bcmgenet_mmio_umac_ops, s,
+    memory_region_init_io(&s->iomem.umac, OBJECT(s), &bcmgenet_mmio_umac_ops, s,
                           "bcmgenet.umac", BCMGENET_MMIO_UMAC_SIZE);
-    memory_region_add_subregion(&s->bcmgenet, GENET_UMAC_OFF, &s->umac);
+    memory_region_add_subregion(&s->bcmgenet, GENET_UMAC_OFF, &s->iomem.umac);
 #if 1
-    memory_region_init_io(&s->rbuf, OBJECT(s), &bcmgenet_mmio_rbuf_ops, s,
+    memory_region_init_io(&s->iomem.rbuf, OBJECT(s), &bcmgenet_mmio_rbuf_ops, s,
                           "bcmgenet.rbuf", BCMGENET_MMIO_RBUF_SIZE);
-    memory_region_add_subregion(&s->bcmgenet, GENET_RBUF_OFF, &s->rbuf);
+    memory_region_add_subregion(&s->bcmgenet, GENET_RBUF_OFF, &s->iomem.rbuf);
 
-    memory_region_init_io(&s->tbuf, OBJECT(s), &bcmgenet_mmio_tbuf_ops, s,
+    memory_region_init_io(&s->iomem.tbuf, OBJECT(s), &bcmgenet_mmio_tbuf_ops, s,
                           "bcmgenet.tbuf", BCMGENET_MMIO_TBUF_SIZE);
-    memory_region_add_subregion(&s->bcmgenet, GENET_TBUF_OFF, &s->tbuf);
-    memory_region_init_io(&s->hfb, OBJECT(s), &bcmgenet_mmio_hfb_ops, s,
+    memory_region_add_subregion(&s->bcmgenet, GENET_TBUF_OFF, &s->iomem.tbuf);
+    
+    memory_region_init_io(&s->iomem.hfb, OBJECT(s), &bcmgenet_mmio_hfb_ops, s,
                           "bcmgenet.hfb", BCMGENET_MMIO_HFB_SIZE);
-    memory_region_add_subregion(&s->bcmgenet, GENET_HFB_OFF, &s->hfb);    
+    memory_region_add_subregion(&s->bcmgenet, GENET_HFB_OFF, &s->iomem.hfb);    
 #endif
 #if 0
         object_property_set_link(OBJECT(&s->unimac_mdio), OBJECT(&s->bcmgenet),
@@ -1678,8 +1817,8 @@ static void bcmgenet_realize(DeviceState *dev, Error **errp)
 memory_region_add_subregion(&s->bcmgenet, GENET_UMAC_OFF,
                 sysbus_mmio_get_region(SYS_BUS_DEVICE(&mdio->iomem), 0)); 
 #endif                
-    sysbus_init_irq(sbd, &s->irq157);
-    sysbus_init_irq(sbd, &s->irq158);
+    sysbus_init_irq(sbd, &s->intrl2_0);
+    sysbus_init_irq(sbd, &s->intrl2_1);
     qemu_macaddr_default_if_unset(&s->conf.macaddr);
     s->nic = qemu_new_nic(&net_bcmgenet_info, &s->conf,
                           object_get_typename(OBJECT(dev)),

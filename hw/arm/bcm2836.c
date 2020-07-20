@@ -427,7 +427,10 @@ static void bcm2838_realize(DeviceState *dev, Error **errp)
      sysbus_connect_irq(SYS_BUS_DEVICE(&s->peripherals.property), 0,
                       qdev_get_gpio_in(DEVICE(&s->peripherals.mboxes), MBOX_CHAN_PROPERTY));
                                                                            
-                               
+     sysbus_connect_irq(SYS_BUS_DEVICE(&s->peripherals.cprman), 0,
+       qdev_get_gpio_in(DEVICE(&s->peripherals), 
+                               INTERRUPT_CPR+32+32)); 
+                                                              
      sysbus_connect_irq(SYS_BUS_DEVICE(&s->peripherals.mmcnr), 0,
        qdev_get_gpio_in(DEVICE(&s->peripherals), 
                                INTERRUPT_ARASANSDIO+32+32)); 

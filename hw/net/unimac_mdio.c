@@ -161,8 +161,8 @@
 #define BCM5482_SHD_MODE_1000BX	0x0001	/* Enable 1000BASE-X registers */
 static void phy_update_irq(BCMGENETState *s)
 {
-    qemu_set_irq(s->irq157, s->isr & s->ier);
-        qemu_set_irq(s->irq158, s->isr & s->ier);
+    qemu_set_irq(s->intrl2_0, s->isr & s->ier);
+        qemu_set_irq(s->intrl2_1, s->isr & s->ier);
 }
 
 void phy_reset(BCMGENETState *s)

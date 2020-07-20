@@ -21,6 +21,7 @@
 #include "hw/misc/bcm2835_rng.h"
 #include "hw/misc/bcm2835_mbox.h"
 #include "hw/misc/bcm2835_thermal.h"
+#include "hw/misc/bcm2835_cprman.h"
 #include "hw/sd/sdhci.h"
 #include "hw/sd/bcm2835_sdhost.h"
 #include "hw/gpio/bcm2835_gpio.h"
@@ -45,8 +46,9 @@ typedef struct BCM2835PeripheralState {
 
     BCM2835SystemTimerState systmr;
     UnimplementedDeviceState armtmr;
-    UnimplementedDeviceState cprman;
-    UnimplementedDeviceState a2w;
+//    UnimplementedDeviceState cprman;
+//    UnimplementedDeviceState a2w;
+    BCM2835CprmanState cprman;
     PL011State uart0;
     BCM2835AuxState aux;
     BCM2835FBState fb;
