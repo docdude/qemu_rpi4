@@ -326,6 +326,7 @@ static void bcmgenet_eval_irq(BCMGENETState *s, int reg)
     } else {
       mask = s->intrl2_0regs[INTRL2_CPU_MASK_STATUS >> 2];
       stat = s->intrl2_0regs[INTRL2_CPU_STAT >> 2]; //& ~UMAC_IRQ_TXDMA_DONE;
+      printf("stat 0x%x\n",stat);
       if (stat & ~mask) {
         bcmgenet_set_irq(s,0);
       } else {
@@ -1102,7 +1103,7 @@ static uint64_t bcmgenet_mmio_intrl2_0_read(void *opaque, hwaddr addr, unsigned 
     switch (addr) {
     case INTRL2_CPU_STAT:
          bcmgenet_eval_irq(s, 0);
-        // val = val & ~UMAC_IRQ_TXDMA_DONE;
+ //        val |= 0x800000;//val & ~UMAC_IRQ_TXDMA_DONE;
     break;
     case INTRL2_CPU_MASK_STATUS:
         bcmgenet_eval_irq(s,0);
@@ -1143,7 +1144,7 @@ static void bcmgenet_mmio_intrl2_0_write(void *opaque, hwaddr addr, uint64_t val
     case INTRL2_CPU_SET:
     break;			
     case INTRL2_CPU_CLEAR:
-            bcmgenet_update_status(s, val, false, 0);
+ //           bcmgenet_update_status(s, val, false, 0);
     break;		
     case INTRL2_CPU_MASK_STATUS:
         bcmgenet_eval_irq(s,0);
@@ -1228,7 +1229,7 @@ static void bcmgenet_mmio_intrl2_1_write(void *opaque, hwaddr addr, uint64_t val
     case INTRL2_CPU_SET:	
         break;		
     case INTRL2_CPU_CLEAR:
-            bcmgenet_update_status(s, val, false, 1);
+//            bcmgenet_update_status(s, val, false, 1);
         break;		
     case INTRL2_CPU_MASK_STATUS:
         bcmgenet_eval_irq(s,1);	
@@ -1733,11 +1734,11 @@ static const MemoryRegionOps bcmgenet_mmio_hfb_ops = {
 #if 0
 static void bcmgenet_init(Object *obj)
 { 
-    UNIMACState *s = UNIMAC_MDIO(obj); 
+    BCMGENETState *s = BCMGENET(obj); 
                              
-    sysbus_init_child_obj(obj, "unimac_mdio", &s->iomem, sizeof(s->iomem),
-                             TYPE_UNIMAC_MDIO);   
- 
+  //  sysbus_init_child_obj(obj, "unimac_mdio", &s->iomem, sizeof(s->iomem),
+    //                         TYPE_UNIMAC_MDIO);   
+        bcmgenet_reset(DEVICE(s)); 
 }
 #endif
 static void bcmgenet_cleanup(NetClientState *nc)
@@ -1761,7 +1762,7 @@ static void bcmgenet_realize(DeviceState *dev, Error **errp)
     BCMGENETState *s = BCMGENET(dev);
     SysBusDevice *sbd = SYS_BUS_DEVICE(dev);
 
-//    bcmgenet_reset_all(s, true);
+ //   bcmgenet_reset(DEVICE(s));
     memory_region_init(&s->bcmgenet, OBJECT(s), "bcmgenet", GENET_MMIO_SIZE);
 
     memory_region_init_io(&s->iomem.sys, OBJECT(s), &bcmgenet_mmio_sys_ops, s,
