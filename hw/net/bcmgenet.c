@@ -22,275 +22,8 @@
 #include "trace.h"
 #include "qemu-common.h"
 #include "hw/net/bcmgenet.h"
-//#include "hw/net/unimac_mdio.h"
 
 
-
-/* Register definitions derived from Linux source */
-
-
-#define GENET_SYS_OFF			0x0000UL
-#define SYS_REV_CTRL			0x0000UL
-#define SYS_PORT_CTRL			0x0004UL
-#define  PORT_MODE_INT_EPHY		0
-#define  PORT_MODE_INT_GPHY		1
-#define  PORT_MODE_EXT_EPHY		2
-#define  PORT_MODE_EXT_GPHY		3
-#define  PORT_MODE_EXT_RVMII_25	(4 | BIT(4))
-#define  PORT_MODE_EXT_RVMII_50	4
-#define  LED_ACT_SOURCE_MAC		BIT(9)
-#define SYS_RBUF_FLUSH_CTRL		0x0008UL
-#define SYS_TBUF_FLUSH_CTRL		0x000cUL
-
-#define GENET_EXT_OFF			0x0080UL
-/* Ext block register offsets and definitions */
-#define EXT_EXT_PWR_MGMT		0x0000UL
-#define  EXT_PWR_DOWN_BIAS		BIT(0)
-#define  EXT_PWR_DOWN_DLL		BIT(1)
-#define  EXT_PWR_DOWN_PHY		BIT(2)
-#define  EXT_PWR_DN_EN_LD		BIT(3)
-#define  EXT_ENERGY_DET		BIT(4)
-#define  EXT_IDDQ_FROM_PHY		BIT(5)
-#define  EXT_IDDQ_GLBL_PWR		BIT(7)
-#define  EXT_PHY_RESET			BIT(8)
-#define  EXT_ENERGY_DET_MASK		BIT(12)
-#define  EXT_PWR_DOWN_PHY_TX		BIT(16)
-#define  EXT_PWR_DOWN_PHY_RX		BIT(17)
-#define  EXT_PWR_DOWN_PHY_SD		BIT(18)
-#define  EXT_PWR_DOWN_PHY_RD		BIT(19)
-#define  EXT_PWR_DOWN_PHY_EN		BIT(20)
-#define EXT_RGMII_OOB_CTRL		0x000cUL
-#define RGMII_LINK			BIT(4)
-#define OOB_DISABLE			BIT(5)
-#define RGMII_MODE_EN			BIT(6)
-#define ID_MODE_DIS			BIT(16)
-#define EXT_GPHY_CTRL			0x001CUL
-#define  EXT_CFG_IDDQ_BIAS		BIT(0)
-#define  EXT_CFG_PWR_DOWN		BIT(1)
-#define  EXT_CK25_DIS			BIT(4)
-#define  EXT_GPHY_RESET		BIT(5)
-
-#define GENET_INTRL2_0_OFF		0x0200UL
-#define INTRL2_0_INST                  0x0000UL
-#define UMAC_IRQ_SCB			BIT(0)
-#define UMAC_IRQ_EPHY			BIT(1)
-#define UMAC_IRQ_PHY_DET_R		BIT(2)
-#define UMAC_IRQ_PHY_DET_F		BIT(3)
-#define UMAC_IRQ_LINK_UP		BIT(4)
-#define UMAC_IRQ_LINK_DOWN		BIT(5)
-#define UMAC_IRQ_LINK_EVENT		(UMAC_IRQ_LINK_UP | UMAC_IRQ_LINK_DOWN)
-#define UMAC_IRQ_UMAC			BIT(6)
-#define UMAC_IRQ_UMAC_TSV		BIT(7)
-#define UMAC_IRQ_TBUF_UNDERRUN	BIT(8)
-#define UMAC_IRQ_RBUF_OVERFLOW	BIT(9)
-#define UMAC_IRQ_HFB_SM		BIT(10)
-#define UMAC_IRQ_HFB_MM		BIT(11)
-#define UMAC_IRQ_MPD_R			BIT(12)
-#define UMAC_IRQ_RXDMA_MBDONE		BIT(13)
-#define UMAC_IRQ_RXDMA_PDONE		BIT(14)
-#define UMAC_IRQ_RXDMA_BDONE		BIT(15)
-#define UMAC_IRQ_RXDMA_DONE		UMAC_IRQ_RXDMA_MBDONE
-#define UMAC_IRQ_TXDMA_MBDONE		BIT(16)
-#define UMAC_IRQ_TXDMA_PDONE		BIT(17)
-#define UMAC_IRQ_TXDMA_BDONE		BIT(18)
-#define UMAC_IRQ_TXDMA_DONE		UMAC_IRQ_TXDMA_MBDONE
-
-
-#define GENET_INTRL2_1_OFF		0x0240UL
-#define INTRL2_CPU_STAT		0x0000UL
-#define INTRL2_CPU_SET			0x0004UL
-#define INTRL2_CPU_CLEAR		0x0008UL
-#define INTRL2_CPU_MASK_STATUS	0x000CUL
-#define INTRL2_CPU_MASK_SET		0x0010UL
-#define INTRL2_CPU_MASK_CLEAR		0x0014UL
-
-
-#define GENET_RBUF_OFF			0x0300UL
-#define RBUF_TBUF_SIZE_CTRL		0xb4
-#define RBUF_CTRL			0x00
-#define RBUF_ALIGN_2B			BIT(1)
-
-#define GENET_TBUF_OFF			0x0600UL
-#define TBUF_CTRL			0x0000UL
-#define TBUF_BP_MC			0x000CUL
-#define TBUF_ENERGY_CTRL		0x0014UL
-#define TBUF_EEE_EN			BIT(0)
-#define TBUF_PM_EN			BIT(1)
-#define TBUF_CTRL_V1			0x0080UL
-#define TBUF_BP_MC_V1			0x00A0UL
-
-#define GENET_UMAC_OFF			0x0800UL
-
-#define UMAC_CMD			0x0008UL
-#define UMAC_MAC0			0x000cUL
-#define UMAC_MAC1			0x0010UL
-#define UMAC_MAX_FRAME_LEN		0x0014UL
-#define UMACEEECTRL			0x0064UL
-#define UMACEEELPITIMER 		0x0068UL
-#define UMACEEEWAKETIMER		0x006cUL
-#define UMACEEEREFCOUNT		0x0070UL
-#define UMAC_TX_FLUSH			0x0334UL
-#define UMAC_MIB_CTRL			0x0580UL
-#define MDIO_CMD			0x0614UL		
-#define UMACMPDCTRL			0x0620UL 
-#define UMACMDFCTRL			0x0650UL
-#define UMACMDFADDR0			0x0654UL
-
-#define MDIO_START_BUSY		BIT(29)
-#define MDIO_READ_FAIL			BIT(28)
-#define MDIO_RD			BIT(27)
-#define MDIO_WR			BIT(26)
-#define MDIO_PMD_SHIFT			21
-#define MDIO_PMD_MASK			0x1f
-#define MDIO_REG_SHIFT			16
-#define MDIO_REG_MASK			0x1f
-
-
-#define UMAC_SPEED_10			0
-#define UMAC_SPEED_100			1
-#define UMAC_SPEED_1000		2
-#define UMAC_SPEED_2500		3
-#define CMD_SPEED_SHIFT		2
-#define CMD_SPEED_MASK			3
-#define CMD_TX_EN			BIT(0)
-#define CMD_RX_EN			BIT(1)
-#define CMD_PROMISC			BIT(4)
-#define CMD_PAD_EN			BIT(5)
-#define CMD_CRC_FWD			BIT(6)
-#define CMD_PAUSE_FWD			BIT(7)
-#define CMD_RX_PAUSE_IGNORE		BIT(8)
-#define CMD_TX_ADDR_INS		BIT(9)
-#define CMD_HD_EN			BIT(10)
-#define CMD_SW_RESET			BIT(13)
-#define CMD_LCL_LOOP_EN		BIT(15)
-#define CMD_AUTO_CONFIG		BIT(22)
-#define CMD_CNTL_FRM_EN		BIT(23)
-#define CMD_NO_LEN_CHK			BIT(24)
-#define CMD_RMT_LOOP_EN		BIT(25)
-#define CMD_PRBL_EN			BIT(27)
-#define CMD_TX_PAUSE_IGNORE		BIT(28)
-#define CMD_TX_RX_EN			BIT(29)
-#define CMD_RUNT_FILTER_DIS		BIT(30)
-
-#define MIB_RESET_RX			BIT(0)
-#define MIB_RESET_RUNT			BIT(1)
-#define MIB_RESET_TX			BIT(2)
-
-/* total number of Buffer Descriptors, same for Rx/Tx */
-#define TOTAL_DESCS			256
-#define RX_DESCS			TOTAL_DESCS
-#define TX_DESCS			TOTAL_DESCS
-
-#define DEFAULT_Q			0x10
-
-/* Body(1500) + EH_SIZE(14) + VLANTAG(4) + BRCMTAG(6) + FCS(4) = 1528.
- * 1536 is multiple of 256 bytes
- */
-#define ENET_BRCM_TAG_LEN		6
-#define ENET_PAD			8
-#define ENET_MAX_MTU_SIZE		(ETH_DATA_LEN + ETH_HLEN +	 \
-					 VLAN_HLEN + ENET_BRCM_TAG_LEN + \
-					 ETH_FCS_LEN + ENET_PAD)
-
-/* Tx/Rx Dma Descriptor common bits */
-#define DMA_EN				BIT(0)
-#define DMA_RING_BUF_EN_SHIFT		0x01
-#define DMA_RING_BUF_EN_MASK		0xffff
-#define DMA_BUFLENGTH_MASK		0x0fff
-#define DMA_BUFLENGTH_SHIFT		16
-#define DMA_RING_SIZE_SHIFT		16
-#define DMA_OWN			BIT(15) //0x8000
-#define DMA_EOP			BIT(14) //0x4000
-#define DMA_SOP			BIT(13) //0x2000
-#define DMA_WRAP			BIT(12) //0x1000
-#define DMA_MAX_BURST_LENGTH		BIT(3)  //0x8
-/* Tx specific DMA descriptor bits */
-#define DMA_TX_UNDERRUN		BIT(9) //0x0200
-#define DMA_TX_APPEND_CRC		BIT(6) //0x0040
-#define DMA_TX_OW_CRC			BIT(5) //0x0020
-#define DMA_TX_DO_CSUM			BIT(4) //0x0010
-#define DMA_TX_QTAG_SHIFT		7
-
-/* DMA rings size */
-#define DMA_RING_SIZE			0x40
-#define DMA_RINGS_SIZE			(DMA_RING_SIZE * (DEFAULT_Q + 1))
-
-/* DMA descriptor */
-#define DMA_DESC_LENGTH_STATUS	0x00
-#define DMA_DESC_ADDRESS_LO		0x04
-#define DMA_DESC_ADDRESS_HI		0x08
-#define DMA_DESC_SIZE			12
-
-
-
-
-#define DMA_FC_THRESH_HI		(RX_DESCS >> 4)
-#define DMA_FC_THRESH_LO		5
-#define DMA_FC_THRESH_VALUE		((DMA_FC_THRESH_LO << 16) |	\
-					  DMA_FC_THRESH_HI)
-
-#define DMA_XOFF_THRESHOLD_SHIFT	16
-
-#define GENET_RX_OFF			0x2000UL
-#define GENET_RDMA_REG_OFF					\
-	(TOTAL_DESCS * DMA_DESC_SIZE)
-#define RDMA_RING_REG_BASE					\
-	(GENET_RDMA_REG_OFF + DEFAULT_Q * DMA_RING_SIZE)
-#define RDMA_WRITE_PTR			(RDMA_RING_REG_BASE + 0x00)
-#define RDMA_PROD_INDEX		(RDMA_RING_REG_BASE + 0x08)
-#define RDMA_CONS_INDEX		(RDMA_RING_REG_BASE + 0x0c)
-#define RDMA_RING_BUF_SIZE		(RDMA_RING_REG_BASE + 0x10)
-#define RDMA_START_ADDR		(RDMA_RING_REG_BASE + 0x14)
-#define RDMA_END_ADDR			(RDMA_RING_REG_BASE + 0x1c)
-#define RDMA_MBUF_DONE_THRESH		(RDMA_RING_REG_BASE + 0x24)
-#define RDMA_XON_XOFF_THRESH		(RDMA_RING_REG_BASE + 0x28)
-#define RDMA_READ_PTR			(RDMA_RING_REG_BASE + 0x2c)
-
-#define RDMA_REG_BASE			(GENET_RDMA_REG_OFF + DMA_RINGS_SIZE)
-#define RDMA_RING_CFG			(RDMA_REG_BASE + 0x00)
-#define RDMA_CTRL			(RDMA_REG_BASE + 0x04)
-#define RDMASTATUS	                (RDMA_REG_BASE + 0X08)
-#define RDMA_SCB_BURST_SIZE		(RDMA_REG_BASE + 0x0c)
-#define RDMATIMEOUT0			(RDMA_REG_BASE + 0X2C)
-#define RDMAINDEX2RING0	   	(RDMA_REG_BASE + 0X70)
-
-#define GENET_TX_OFF			0x4000UL
-#define GENET_TDMA_REG_OFF					\
-	(TOTAL_DESCS * DMA_DESC_SIZE)
-#define TDMA_RING_REG_BASE					\
-	(GENET_TDMA_REG_OFF + DEFAULT_Q * DMA_RING_SIZE)
-#define TDMA_READ_PTR			(TDMA_RING_REG_BASE + 0x00)
-#define TDMA_CONS_INDEX		(TDMA_RING_REG_BASE + 0x08)
-#define TDMA_PROD_INDEX		(TDMA_RING_REG_BASE + 0x0c)
-#define TDMA_RING_BUF_SIZE		(TDMA_RING_REG_BASE + 0x10)
-#define TDMA_START_ADDR		(TDMA_RING_REG_BASE + 0x14)
-#define TDMA_END_ADDR			(TDMA_RING_REG_BASE + 0x1c)
-#define TDMA_MBUF_DONE_THRESH		(TDMA_RING_REG_BASE + 0x24)
-#define TDMA_FLOW_PERIOD		(TDMA_RING_REG_BASE + 0x28)
-#define TDMA_WRITE_PTR			(TDMA_RING_REG_BASE + 0x2c)
-
-#define TDMA_REG_BASE			(GENET_TDMA_REG_OFF + DMA_RINGS_SIZE)
-#define TDMA_RING_CFG			(TDMA_REG_BASE + 0x00)
-#define TDMA_CTRL			(TDMA_REG_BASE + 0x04)
-#define TDMASTATUS	                (TDMA_REG_BASE + 0X08)
-#define TDMA_SCB_BURST_SIZE		(TDMA_REG_BASE + 0x0c)
-#define TDMAARBCTRL	 		(TDMA_REG_BASE +0X2C)
-#define TDMAPRIORITY0			(TDMA_REG_BASE +0X30)
-#define TDMAPRIORITY1			(TDMA_REG_BASE +0X34)
-#define TDMAPRIORITY2			(TDMA_REG_BASE +0X38)
-
-#define DMA_P_INDEX_MASK		0xFFFF
-#define DMA_C_INDEX_MASK		0xFFFF
-#define RX_BUF_LENGTH			2048
-#define RX_TOTAL_BUFSIZE		(RX_BUF_LENGTH * RX_DESCS)
-#define RX_BUF_OFFSET			2
-
-#define DEBUG 0
-
-#define GENET_HFB_OFF			0x8000
-#define HFBCTLR	0xFC00
-#define HFBFLTENABLE	0xFC04
-#define HFBFLTLEN	0xFC1C
 
 
 static void bcmgenet_set_irq(BCMGENETState *s, int reg)
@@ -326,7 +59,8 @@ static void bcmgenet_eval_irq(BCMGENETState *s, int reg)
     } else {
       mask = s->intrl2_0regs[INTRL2_CPU_MASK_STATUS >> 2];
       stat = s->intrl2_0regs[INTRL2_CPU_STAT >> 2]; //& ~UMAC_IRQ_TXDMA_DONE;
-      printf("stat 0x%x\n",stat);
+//      printf("stat 0x%x\n",stat);
+//            printf("mask 0x%x\n",mask);
       if (stat & ~mask) {
         bcmgenet_set_irq(s,0);
       } else {
@@ -336,7 +70,29 @@ static void bcmgenet_eval_irq(BCMGENETState *s, int reg)
     
 }
 
-static void bcmgenet_update_status(BCMGENETState *s, uint32_t bits, bool val, int reg)
+
+static void phy_update_link(BCMGENETState *s)
+{ printf("***********************LINK**********\n");
+    trace_bcmgenet_link_status_changed(qemu_get_queue(s->nic)->link_down ? false : true);
+    /* Autonegotiation status mirrors link status.  */
+    if (qemu_get_queue(s->nic)->link_down) {
+        s->phy_status &= ~(MII_BMSR_LINK_ST | MII_BMSR_AN_COMP);
+//        s->phy_int |= PHY_INT_DOWN;
+   	bcmgenet_update_status(s, UMAC_IRQ_LINK_DOWN, true, 0);
+    } else {
+        s->phy_status |= (MII_BMSR_LINK_ST | MII_BMSR_AN_COMP);
+//        s->phy_int |= PHY_INT_AUTONEG_COMPLETE;
+   	bcmgenet_update_status(s, UMAC_IRQ_LINK_UP, true, 0);
+    }
+//    phy_update_irq(s);
+}
+
+static void bcmgenet_set_link_status(NetClientState *nc)
+{   /* OS driver does not use phy interrupt */
+    phy_update_link(BCMGENET(qemu_get_nic_opaque(nc)));
+}
+
+void bcmgenet_update_status(BCMGENETState *s, uint32_t bits, bool val, int reg)
 {
     uint32_t stat;
 
@@ -345,7 +101,12 @@ static void bcmgenet_update_status(BCMGENETState *s, uint32_t bits, bool val, in
       if (val) {
         stat |= bits;
       } else {
-        stat &= ~bits;
+          if (bits == 0xffffffff) {
+//stat = (stat || bits) && !(stat && bits);
+	    stat = ~(stat | bits);
+          } else {
+            stat &= ~bits;
+          }     
       }
 
       s->intrl2_1regs[INTRL2_CPU_STAT >> 2] = stat;
@@ -354,11 +115,19 @@ static void bcmgenet_update_status(BCMGENETState *s, uint32_t bits, bool val, in
       stat = s->intrl2_0regs[INTRL2_CPU_STAT >> 2];
       if (val) {
         stat |= bits;
+        s->intrl2_0regs[(INTRL2_CPU_CLEAR >> 2) + 0x04] |= stat;
       } else {
-        stat &= ~bits;
-      }
 
+          if (bits == 0xffffffff) {
+//        
+//stat = (stat || bits) && !(stat && bits);
+	     stat = ~(stat | bits);
+          } else {
+            stat &= ~bits;
+          }
+      }    
       s->intrl2_0regs[INTRL2_CPU_STAT >> 2] = stat;
+
       bcmgenet_eval_irq(s, 0);
     }
 }
@@ -370,17 +139,29 @@ static void bcmgenet_update_mask_status(BCMGENETState *s, uint32_t bits, bool va
     if (reg) {
       stat = s->intrl2_1regs[INTRL2_CPU_MASK_STATUS >> 2];
       if (val) {
-        stat |= bits;
+          if (bits == 0xffffffff) { 
+          stat = ~(stat ^ bits);
+//stat = (stat || bits) && !(stat && bits);
+
+          } else {
+            stat |= bits;
+          } 
       } else {
         stat &= ~bits;
       }
 
       s->intrl2_1regs[INTRL2_CPU_MASK_STATUS >> 2] = stat;
       bcmgenet_eval_irq(s, 1);
-    } else {
+    } else {     
       stat = s->intrl2_0regs[INTRL2_CPU_MASK_STATUS >> 2];
       if (val) {
-        stat |= bits;
+          if (bits == 0xffffffff) { 
+          stat = ~(stat ^ bits);
+//stat = (stat || bits) && !(stat && bits);
+
+          } else {
+            stat |= bits;
+          }  
       } else {
         stat &= ~bits;
       }
@@ -390,24 +171,7 @@ static void bcmgenet_update_mask_status(BCMGENETState *s, uint32_t bits, bool va
     }
 }
 
-#if 0
-static void phy_update_link(BCMGENETState *s)
-{
-    /* Autonegotiation status mirrors link status.  */
-    if (qemu_get_queue(s->nic)->link_down) {
-        s->mdio.phy_status &= ~(MII_BMSR_LINK_ST | MII_BMSR_AN_COMP);
-  //      s->mdio.phy_int |= PHY_INT_DOWN;
-    } else {
-        s->mdio.phy_status |= (MII_BMSR_LINK_ST | MII_BMSR_AN_COMP);
- //       s->mdio.phy_int |= PHY_INT_AUTONEG_COMPLETE;
-    }
-    phy_update_irq(s);
-}
-#endif
-static void bcmgenet_set_link_status(NetClientState *nc)
-{   /* OS driver does not use phy interrupt */
-   // phy_update_link(BCMGENETState(qemu_get_nic_opaque(nc)));
-}
+
 
 
 
@@ -458,13 +222,13 @@ static int bcmgenet_write_bd(BCMGENETDesc *bd, dma_addr_t addr)
     return 0;
 }
 #endif
-static void bcmgenet_do_tx(BCMGENETState *s)
+static void bcmgenet_do_tx(BCMGENETState *s, int ring)
 {
     dma_addr_t addr;
     int frame_size = 0;
     uint8_t *ptr = s->frame;
     uint32_t tdma_cfg, umac_cfg, ints;  
-    uint32_t prod_idx, cons_idx;  
+    uint32_t prod_idx, cons_idx, write_ptr;  
 //    uint32_t flags = 0;
     uint32_t dma_len_stat;
     uint32_t desc_base;
@@ -488,23 +252,53 @@ printf("*****umaccfg 0x%x tdmacfg 0x%x\n",umac_cfg,tdma_cfg);
         trace_bcmgenet_tx_disabled();
         return;
     }
-    prod_idx = s->tdmaregs[TDMA_PROD_INDEX >> 2] & DMA_P_INDEX_MASK;
-    cons_idx = s->tdmaregs[TDMA_CONS_INDEX >> 2] & DMA_C_INDEX_MASK;
-    desc_base = (prod_idx - 1)  * DMA_DESC_SIZE;
-
+    s->ring_idx = ring;
+            switch (ring) {
+           case 0:
+               prod_idx = s->tdmaregs[TDMA_PROD_INDEX_Q0 >> 2] & DMA_P_INDEX_MASK;
+               cons_idx = s->tdmaregs[TDMA_CONS_INDEX_Q0 >> 2] & DMA_C_INDEX_MASK;
+               write_ptr = s->tdmaregs[TDMA_WRITE_PTR_Q0 >> 2];
+           break;
+           case 1:
+               prod_idx = s->tdmaregs[TDMA_PROD_INDEX_Q1 >> 2] & DMA_P_INDEX_MASK;
+ 	       cons_idx = s->tdmaregs[TDMA_CONS_INDEX_Q1 >> 2] & DMA_C_INDEX_MASK;
+               write_ptr = s->tdmaregs[TDMA_WRITE_PTR_Q1 >> 2]; 	       
+           break;
+           case 2:
+               prod_idx = s->tdmaregs[TDMA_PROD_INDEX_Q2 >> 2] & DMA_P_INDEX_MASK;
+    	       cons_idx = s->tdmaregs[TDMA_CONS_INDEX_Q2 >> 2] & DMA_C_INDEX_MASK;
+    	       write_ptr = s->tdmaregs[TDMA_WRITE_PTR_Q2 >> 2];
+           break;
+           case 3:
+               prod_idx = s->tdmaregs[TDMA_PROD_INDEX_Q3 >> 2] & DMA_P_INDEX_MASK;
+  	       cons_idx = s->tdmaregs[TDMA_CONS_INDEX_Q3 >> 2] & DMA_C_INDEX_MASK;
+  	       write_ptr = s->tdmaregs[TDMA_WRITE_PTR_Q3 >> 2];
+           break;
+           case 16:
+               prod_idx = s->tdmaregs[TDMA_PROD_INDEX_Q16 >> 2] & DMA_P_INDEX_MASK;
+               cons_idx = s->tdmaregs[TDMA_CONS_INDEX_Q16 >> 2] & DMA_C_INDEX_MASK;
+               write_ptr = s->tdmaregs[TDMA_WRITE_PTR_Q16 >> 2];
+           break;
+        }    
+//    prod_idx = s->tdmaregs[TDMA_PROD_INDEX >> 2] & DMA_P_INDEX_MASK;
+//    cons_idx = s->tdmaregs[TDMA_CONS_INDEX >> 2] & DMA_C_INDEX_MASK;
+//    desc_base = (prod_idx - 1)  * DMA_DESC_SIZE;
+//    desc_base = prod_idx  * DMA_DESC_SIZE;
+    desc_base = ((ring * (write_ptr/(3*ring))) + (prod_idx-1)) * DMA_DESC_SIZE;
     addr = s->tdmaregs[(desc_base + DMA_DESC_ADDRESS_HI) >> 2];
     addr = (addr << 32) | s->tdmaregs[(desc_base + DMA_DESC_ADDRESS_LO) >> 2];      
     dma_len_stat = s->tdmaregs[(desc_base + DMA_DESC_LENGTH_STATUS) >> 2];
-#if DEBUG    
-printf("***********descbase 0x%x addrlo 0x%lx addrhi 0x%lx dma_len_stat 0x%x\n",desc_base,addr>>32, addr,dma_len_stat);
-#endif
+//#if DEBUG    
+printf("***********prod_idx 0x%x writeptr 0x%x descbase 0x%x addrlo 0x%lx addrhi 0x%lx dma_len_stat 0x%x\n",prod_idx, write_ptr, desc_base,addr>>32, addr,dma_len_stat);
+//#endif
     trace_bcmgenet_tx_process(cons_idx, prod_idx);
 
     /* This is rather primitive for now, we just send everything we
      * can in one go, like e1000. Ideally we should do the sending
      * from some kind of background task
      */
- //   while (cons_idx != prod_idx) {
+  //  while (cons_idx != prod_idx) {
+if (cons_idx != prod_idx) {
         BCMGENETDesc bd;
         int len;
 #if DEBUG        
@@ -571,9 +365,7 @@ printf("\n");
             ptr = s->frame;
             frame_size = 0;
         }
-//    addr = s->rdmaregs[(desc_base + DMA_DESC_ADDRESS_HI) >> 2];
- //   addr = (addr << 32) | s->rdmaregs[(desc_base + DMA_DESC_ADDRESS_LO) >> 2];      
-  //  dma_len_stat = s->rdmaregs[(desc_base + DMA_DESC_LENGTH_STATUS) >> 2];
+
         dma_len_stat &= ~DMA_OWN;
         /* Write back the modified descriptor.  */
 //        bcmgenet_write_bd(&bd, addr);
@@ -583,20 +375,39 @@ dma_memory_write(&address_space_memory, addr, ptr, sizeof(ptr));
         /* Next ! */
         /* Advance to the next descriptor.  */
         /* Next ! */
-      cons_idx = (cons_idx + 1) & DMA_C_INDEX_MASK;
-        s->tdmaregs[TDMA_CONS_INDEX >> 2] = cons_idx;
+
          //       s->rdmaregs[RDMA_PROD_INDEX >> 2] = prod_idx;     
  //   }
 
         /* Interrupt */
-        ints = 1 << prod_idx;//UMAC_IRQ_TXDMA_DONE;
+        ints = 1 << ring;//UMAC_IRQ_TXDMA_DONE;
     //    if (desc.control_word & TXDCTRL_INTME) {
       //      ints |= GREG_STAT_TXINTME;
        // }
+              cons_idx = (cons_idx + 1) & DMA_C_INDEX_MASK;
+        switch (ring) {
+           case 0:
+           s->tdmaregs[TDMA_CONS_INDEX_Q0 >> 2] = cons_idx;
+           break;
+           case 1:
+           s->tdmaregs[TDMA_CONS_INDEX_Q1 >> 2] = cons_idx;
+           break;
+           case 2:
+           s->tdmaregs[TDMA_CONS_INDEX_Q2 >> 2] = cons_idx;
+           break;
+           case 3:
+           s->tdmaregs[TDMA_CONS_INDEX_Q3 >> 2] = cons_idx;
+           break;
+           case 16:
+           s->tdmaregs[TDMA_CONS_INDEX_Q16 >> 2] = cons_idx;
+           break;
+        }         
+//        s->tdmaregs[TDMA_CONS_INDEX >> 2] = cons_idx;
         bcmgenet_update_status(s, ints, true, 1);
-    //}
+    }
     /* We sent everything, set status/irq bit */
   //  if (cons_idx == prod_idx)
+ 
     bcmgenet_update_status(s, UMAC_IRQ_TXDMA_DONE, true, 0);
 }
 #endif
@@ -628,7 +439,7 @@ printf("*****CAN RECEIVE umaccfg 0x%x cfg 0x%x\n",umac_cfg,rdma_cfg);
         trace_bcmgenet_rx_txdma_disabled();
         return 0;
     }
-
+  // 	bcmgenet_update_status(s, UMAC_IRQ_LINK_UP, true, 0);
     /* Check RX availability */
     prod_idx = s->rdmaregs[RDMA_PROD_INDEX >> 2] & DMA_P_INDEX_MASK;
     cons_idx = s->rdmaregs[RDMA_CONS_INDEX >> 2] & DMA_C_INDEX_MASK;
@@ -802,32 +613,42 @@ printf("\n");
         return size;
     }
 #endif
+
+    if (s->umacregs[UMAC_CMD >> 2] & CMD_CRC_FWD) {
+	size += 4;//ETH_FCS_LEN;
+    }
     /* Get ring pointers */
     prod_idx = s->rdmaregs[RDMA_PROD_INDEX >> 2] & DMA_P_INDEX_MASK;
     cons_idx = s->rdmaregs[RDMA_CONS_INDEX >> 2] & DMA_C_INDEX_MASK;
     trace_bcmgenet_rx_process(cons_idx, prod_idx);
-    if (rx_cond == rx_match_mac) {
+ 
         desc_base = (prod_idx) * DMA_DESC_SIZE;
 #if DEBUG    
 printf("RX descbase 0x%x prod_idx 0x%x\n",desc_base,prod_idx);
 #endif
+//size +=4;
     addr = s->rdmaregs[(desc_base + DMA_DESC_ADDRESS_HI) >> 2];
     addr = (addr << 32) | s->rdmaregs[(desc_base + DMA_DESC_ADDRESS_LO) >> 2];      
     dma_len_stat = s->rdmaregs[(desc_base + DMA_DESC_LENGTH_STATUS) >> 2];
     /* Read the next descriptor */
-
-
-
+#if 1    
+    dma_len_stat = size << DMA_BUFLENGTH_SHIFT;
+    dma_len_stat |= 0x3F << DMA_TX_QTAG_SHIFT;
+    dma_len_stat |= DMA_TX_APPEND_CRC | DMA_SOP | DMA_EOP;
+    s->rdmaregs[(desc_base + DMA_DESC_LENGTH_STATUS) >> 2] = dma_len_stat;
+#endif    
 
     qemu_hexdump((void *)buf, stderr, "", size);
         cons_idx = (cons_idx + 1) & DMA_C_INDEX_MASK;
         s->rdmaregs[RDMA_CONS_INDEX >> 2] = cons_idx; 
                 prod_idx = (prod_idx + 1) & DMA_P_INDEX_MASK;
         s->rdmaregs[RDMA_PROD_INDEX >> 2] = prod_idx; 
-            ints = UMAC_IRQ_RXDMA_DONE;
+   if (rx_cond == rx_match_mac) {
+            ints = UMAC_IRQ_RXDMA_DONE | UMAC_IRQ_RXDMA_BDONE | UMAC_IRQ_RXDMA_PDONE |s->ring_idx;
 //    if (sungem_rx_full(s, kick, done)) {
  //       ints |= GREG_STAT_RXNOBUF;
  //   }
+     s->rdmaregs[(desc_base + DMA_DESC_LENGTH_STATUS) >> 2] = dma_len_stat;
     bcmgenet_update_status(s, ints, true, 0);
     }     
     /* Ring full ? Can't receive */
@@ -849,7 +670,7 @@ printf("RX descbase 0x%x prod_idx 0x%x\n",desc_base,prod_idx);
 
      dma_flags = (dma_len_stat >> DMA_RING_BUF_EN_SHIFT) & DMA_RING_BUF_EN_MASK;
     buf_len = (dma_len_stat >> DMA_BUFLENGTH_SHIFT) & DMA_BUFLENGTH_MASK;
-    size -= buf_len;
+
     trace_bcmgenet_rx_desc(le32_to_cpu(dma_len_stat), dma_flags, le32_to_cpu(addr));
 
     if (fcs_size) {
@@ -902,15 +723,15 @@ printf("*********bddes3 0x%lx\n",bd.des3);
      * mitigation timer might well end up adding more overhead than
      * helping here...
      */
-
-
+   ints = UMAC_IRQ_RXDMA_MBDONE | UMAC_IRQ_RXDMA_PDONE | UMAC_IRQ_RXDMA_BDONE;
+    bcmgenet_update_status(s, ints, true, 0);
     return size;
 }
 
 static void bcmgenet_reset(DeviceState *d)
 {
     BCMGENETState *s = BCMGENET(d);
-printf("******************************RESET******************************");
+printf("******************************RESET******************************\n");
     /* Reset the BCMGENET */
 #if 0     
     s->isr = 0;
@@ -921,21 +742,21 @@ printf("******************************RESET******************************");
     s->rx_descriptor = 0;
     s->tx_ring = 0;
     s->tx_descriptor = 0;
-    s->math[0] = 0;
-    s->math[1] = 0;
-    s->itc = 0;
-    s->aptcr = 1;
-    s->dblac = 0x00022f00;
-    s->revr = 0;
-    s->fear1 = 0;
-    s->tpafcr = 0xf1;
+
 #endif
+    if (qemu_get_queue(s->nic)->link_down) {
+        s->phy_status &= ~(MII_BMSR_LINK_ST | MII_BMSR_AN_COMP);
+//        s->phy_int |= PHY_INT_DOWN;
+   	bcmgenet_update_status(s, UMAC_IRQ_LINK_DOWN, true, 0);
+    }
     s->umacregs[UMAC_CMD >> 2] = 0x10000d8;
     s->rbufregs[RBUF_CTRL>> 2] = 0xc040;
     s->extregs[EXT_RGMII_OOB_CTRL >> 2] = 0xf00000;
-    s->intrl2_0regs[INTRL2_CPU_STAT >> 2] = 0x800000; //0x802000;  //0
-    s->intrl2_0regs[INTRL2_CPU_MASK_STATUS >> 0x02] = 0x67fffff; //0x7feffff;  //3
-    s->intrl2_0regs[(INTRL2_CPU_CLEAR >> 2) + 0x04] = 0x800024; //2
+    s->intrl2_0regs[INTRL2_CPU_STAT >> 2] = /*0x800000; */0x24;  //0
+    s->intrl2_0regs[INTRL2_CPU_MASK_STATUS >> 2] = /*0x67fffff; */0x7ffffff;  //3
+        s->intrl2_0regs[INTRL2_CPU_CLEAR >> 2] = 0x0; //2
+                s->intrl2_0regs[INTRL2_CPU_MASK_CLEAR >> 2] = 0x00; //2
+    s->intrl2_0regs[(INTRL2_CPU_CLEAR >> 2) + 0x04] = 0x24; //2
     s->intrl2_0regs[(INTRL2_CPU_SET >> 2) + 0x08] = 0x7ffffff;    //1
         s->intrl2_1regs[INTRL2_CPU_MASK_STATUS >> 2] = 0xffffffff;
     s->intrl2_1regs[(INTRL2_CPU_SET >> 2) + 0x08] = 0xffffffff;    //1        
@@ -1102,11 +923,11 @@ static uint64_t bcmgenet_mmio_intrl2_0_read(void *opaque, hwaddr addr, unsigned 
     val = s->intrl2_0regs[addr >> 2];
     switch (addr) {
     case INTRL2_CPU_STAT:
-         bcmgenet_eval_irq(s, 0);
+  //       bcmgenet_eval_irq(s, 0);
  //        val |= 0x800000;//val & ~UMAC_IRQ_TXDMA_DONE;
     break;
     case INTRL2_CPU_MASK_STATUS:
-        bcmgenet_eval_irq(s,0);
+   //     bcmgenet_eval_irq(s,0);
     break;	    
     }
     trace_bcmgenet_mmio_intrl2_0_read(GENET_INTRL2_0_OFF + addr, val);
@@ -1118,7 +939,7 @@ static void bcmgenet_mmio_intrl2_0_write(void *opaque, hwaddr addr, uint64_t val
                                   unsigned size)
 {
     BCMGENETState *s = opaque;
-
+//    uint32_t bits;
     if (!(addr <= 0x40)) {
         qemu_log_mask(LOG_GUEST_ERROR,
                       "Write to unknown INTRL2_0 register 0x%"HWADDR_PRIx"\n",
@@ -1129,11 +950,25 @@ static void bcmgenet_mmio_intrl2_0_write(void *opaque, hwaddr addr, uint64_t val
     trace_bcmgenet_mmio_intrl2_0_write(GENET_INTRL2_0_OFF + addr, val);
 
     /* Pre-write filter */
-  //  switch (addr) {
+    switch (addr) {
     /* Read only registers */
+    case INTRL2_CPU_CLEAR:
+//    printf("*****val 0x%lx\n",val);
+            bcmgenet_update_status(s, val, false, 0);
 
-  //      return;
-  //  }
+  //  break;	
+ 
+        return;
+    case INTRL2_CPU_MASK_SET:
+//        printf("*****val 0x%lx\n",val);
+                bcmgenet_update_mask_status(s, val, true, 0);
+        return;
+	
+    case INTRL2_CPU_MASK_CLEAR:
+                bcmgenet_update_mask_status(s, val, false, 0);
+        return;
+        	        
+    }
 
     s->intrl2_0regs[addr >> 2] = val;
 
@@ -1143,18 +978,10 @@ static void bcmgenet_mmio_intrl2_0_write(void *opaque, hwaddr addr, uint64_t val
     break;			
     case INTRL2_CPU_SET:
     break;			
-    case INTRL2_CPU_CLEAR:
- //           bcmgenet_update_status(s, val, false, 0);
-    break;		
+	
     case INTRL2_CPU_MASK_STATUS:
         bcmgenet_eval_irq(s,0);
     break;		
-    case INTRL2_CPU_MASK_SET:
-                bcmgenet_update_mask_status(s, val, true, 0);
-        break;		
-    case INTRL2_CPU_MASK_CLEAR:
-                bcmgenet_update_mask_status(s, val, false, 0);
-        break;
 
     }
 }
@@ -1187,11 +1014,11 @@ static uint64_t bcmgenet_mmio_intrl2_1_read(void *opaque, hwaddr addr, unsigned 
     val = s->intrl2_1regs[addr >> 2];
     switch (addr) {
     case INTRL2_CPU_STAT:
-         bcmgenet_eval_irq(s, 1);
+   //      bcmgenet_eval_irq(s, 1);
      //    val = val & ~UMAC_IRQ_TXDMA_DONE;
     break;
     case INTRL2_CPU_MASK_STATUS:
-        bcmgenet_eval_irq(s,1);
+    //    bcmgenet_eval_irq(s,1);
     break;	    
     }    
 
@@ -1217,7 +1044,18 @@ static void bcmgenet_mmio_intrl2_1_write(void *opaque, hwaddr addr, uint64_t val
     /* Pre-write filter */
     switch (addr) {
     /* Read only registers */
+    case INTRL2_CPU_CLEAR:
+            bcmgenet_update_status(s, val, false, 1);
 
+
+        return;
+    case INTRL2_CPU_MASK_SET:
+                bcmgenet_update_mask_status(s, val, true, 1);
+        return;
+	
+    case INTRL2_CPU_MASK_CLEAR:
+                bcmgenet_update_mask_status(s, val, false, 1);
+        return;        	        	
     }
 
     s->intrl2_1regs[addr >> 2] = val;
@@ -1228,18 +1066,11 @@ static void bcmgenet_mmio_intrl2_1_write(void *opaque, hwaddr addr, uint64_t val
         break;		
     case INTRL2_CPU_SET:	
         break;		
-    case INTRL2_CPU_CLEAR:
-//            bcmgenet_update_status(s, val, false, 1);
-        break;		
+	
     case INTRL2_CPU_MASK_STATUS:
         bcmgenet_eval_irq(s,1);	
         break;	
-    case INTRL2_CPU_MASK_SET:
-                bcmgenet_update_mask_status(s, val, true, 1);
-        break;		
-    case INTRL2_CPU_MASK_CLEAR:
-                bcmgenet_update_mask_status(s, val, false, 1);
-        break;
+
     }
 }
 
@@ -1400,7 +1231,7 @@ static void bcmgenet_mmio_tdma_write(void *opaque, hwaddr addr, uint64_t val,
                                     unsigned size)
 {
     BCMGENETState *s = opaque;
-
+    int ring_idx;
 //    if (!(addr < 0xc0) && !(addr >= 0x00 && addr <= 0x3fff)) {
     if (!(addr < 0x3fff)) {
         qemu_log_mask(LOG_GUEST_ERROR,
@@ -1411,40 +1242,96 @@ static void bcmgenet_mmio_tdma_write(void *opaque, hwaddr addr, uint64_t val,
 
     trace_bcmgenet_mmio_tdma_write(GENET_TX_OFF + addr, val);
 
+
     /* Pre-write filter */
     switch (addr) {
-    /* Read only registers */
 
-  //      return; /* No actual write */
+    /* Read only registers */
+    case TDMA_CONS_INDEX_Q0:
+    case TDMA_CONS_INDEX_Q1:
+    case TDMA_CONS_INDEX_Q2:
+    case TDMA_CONS_INDEX_Q3:
+    case TDMA_CONS_INDEX_Q16:                
+         if (s->tdmaregs[TDMA_CONS_INDEX_Q0 >> 2] > 0 ||  
+             s->tdmaregs[TDMA_CONS_INDEX_Q1 >> 2] > 0 || 
+             s->tdmaregs[TDMA_CONS_INDEX_Q2 >> 2] > 0 || 
+             s->tdmaregs[TDMA_CONS_INDEX_Q3 >> 2] > 0 || 
+             s->tdmaregs[TDMA_CONS_INDEX_Q16 >> 2] > 0)     
+           return; /* No actual write */
     }
 
     s->tdmaregs[addr >> 2] = val;
 
     /* Post write action */
     switch (addr) { 
-	
-    case TDMA_PROD_INDEX:
+    case TDMA_CONS_INDEX_Q0:
+    case TDMA_CONS_INDEX_Q1:
+    case TDMA_CONS_INDEX_Q2:
+    case TDMA_CONS_INDEX_Q3:
+    case TDMA_CONS_INDEX_Q16:  
+        break;
+    case TDMA_PROD_INDEX_Q0:
+    case TDMA_PROD_INDEX_Q1:
+    case TDMA_PROD_INDEX_Q2:
+    case TDMA_PROD_INDEX_Q3:
+    case TDMA_PROD_INDEX_Q16:
          /* TODO: high priority tx ring */  
-printf("**********transmit********8 0x%lx\n",val);
-        
-         bcmgenet_do_tx(s);
+
+         ring_idx = (addr - GENET_TDMA_REG_OFF) >> 6;
+         printf("**********transmit******** ring_idx %d 0x%lx\n",ring_idx, val);
+         bcmgenet_do_tx(s,ring_idx);
             //     cons_idx = (cons_idx + 1) & DMA_C_INDEX_MASK;
      //   s->tdmaregs[TDMA_CONS_INDEX >> 2] += 1;
      //   if (bcmgenet_can_receive(qemu_get_queue(s->nic))) {
        //     qemu_flush_queued_packets(qemu_get_queue(s->nic));
       //  }
          break;
-    case TDMA_READ_PTR:
-    case TDMA_CONS_INDEX:	         
-    case TDMA_RING_BUF_SIZE:		
-    case TDMA_START_ADDR:		
-    case TDMA_END_ADDR:			
-    case TDMA_MBUF_DONE_THRESH:		
-    case TDMA_FLOW_PERIOD:		
-    case TDMA_WRITE_PTR:			
+	
 
+    case TDMA_READ_PTR_Q0:
+    case TDMA_READ_PTR_Q1:
+    case TDMA_READ_PTR_Q2:
+    case TDMA_READ_PTR_Q3:
+    case TDMA_READ_PTR_Q16:
+	break;         
+    case TDMA_RING_BUF_SIZE_Q0:
+    case TDMA_RING_BUF_SIZE_Q1:
+    case TDMA_RING_BUF_SIZE_Q2:
+    case TDMA_RING_BUF_SIZE_Q3:
+    case TDMA_RING_BUF_SIZE_Q16:
+        break;	
+    case TDMA_START_ADDR_Q0:
+    case TDMA_START_ADDR_Q1:
+    case TDMA_START_ADDR_Q2:
+    case TDMA_START_ADDR_Q3:
+    case TDMA_START_ADDR_Q16:	
+        break;	
+    case TDMA_END_ADDR_Q0:
+    case TDMA_END_ADDR_Q1:
+    case TDMA_END_ADDR_Q2:
+    case TDMA_END_ADDR_Q3:
+    case TDMA_END_ADDR_Q16:	
+        break;		
+    case TDMA_MBUF_DONE_THRESH_Q0:
+    case TDMA_MBUF_DONE_THRESH_Q1:
+    case TDMA_MBUF_DONE_THRESH_Q2:
+    case TDMA_MBUF_DONE_THRESH_Q3:
+    case TDMA_MBUF_DONE_THRESH_Q16:	
+        break;	
+    case TDMA_FLOW_PERIOD_Q0:
+    case TDMA_FLOW_PERIOD_Q1:
+    case TDMA_FLOW_PERIOD_Q2:
+    case TDMA_FLOW_PERIOD_Q3:
+    case TDMA_FLOW_PERIOD_Q16:
+        break;		
+    case TDMA_WRITE_PTR_Q0:
+    case TDMA_WRITE_PTR_Q1:
+    case TDMA_WRITE_PTR_Q2:
+    case TDMA_WRITE_PTR_Q3:
+    case TDMA_WRITE_PTR_Q16:			
+        break;
    case TDMA_RING_CFG:			
-   case TDMA_CTRL:			
+   case TDMA_CTRL:		
    case TDMASTATUS:	             
    case TDMA_SCB_BURST_SIZE:		
    case TDMAARBCTRL:	 		
@@ -1452,8 +1339,10 @@ printf("**********transmit********8 0x%lx\n",val);
    case TDMAPRIORITY1:			
    case TDMAPRIORITY2:			
         break;
-              default:
-
+   default:
+        qemu_log_mask(LOG_GUEST_ERROR,
+                      "Write to unknown TDMA register 0x%"HWADDR_PRIx"\n",
+                      addr);
         break;
     }
 
@@ -1532,8 +1421,8 @@ static void bcmgenet_mmio_rdma_write(void *opaque, hwaddr addr, uint64_t val,
         		
     case RDMASTATUS:	             
     case RDMA_SCB_BURST_SIZE:	
-    case RDMATIMEOUT0:
-    case RDMAINDEX2RING0:    
+    case RDMA_RING0_TIMEOUT:
+    case RDMA_INDEX2RING_0:    
 
         break;
     case RDMA_CTRL:
@@ -1572,6 +1461,15 @@ static uint64_t bcmgenet_mmio_umac_read(void *opaque, hwaddr addr, unsigned size
     val = s->umacregs[addr >> 2];
     
     switch (addr) {
+    case UMAC_CMD:
+
+/////////////////////////////  bcmgenet_update_status(s,UMAC_IRQ_UMAC,true,0);
+        break;
+    case UMAC_MDIO_CMD:				
+
+  //      bcmgenet_update_status(s, UMAC_IRQ_MDIO_DONE, true, 0);
+
+        break;        
     case UMAC_MAC0:
         s->umacregs[addr >> 2] = ((uint32_t) s->conf.macaddr.a[5] << 24) |
             (s->conf.macaddr.a[4] << 16) | (s->conf.macaddr.a[3] << 8) |
@@ -1628,7 +1526,9 @@ static void bcmgenet_mmio_umac_write(void *opaque, hwaddr addr, uint64_t val,
         }
     //    if (bcmgenet_can_receive(qemu_get_queue(s->nic))) {
       //      qemu_flush_queued_packets(qemu_get_queue(s->nic));
-       // }			
+       // }	
+ //                bcmgenet_do_tx(s);
+        break;		
     case UMAC_MAC0: /* MAC */
         s->conf.macaddr.a[5] = val >> 24;
         s->conf.macaddr.a[4] = val >> 16;
@@ -1647,7 +1547,7 @@ static void bcmgenet_mmio_umac_write(void *opaque, hwaddr addr, uint64_t val,
     case UMACEEEREFCOUNT:
     case UMAC_TX_FLUSH:
     case UMAC_MIB_CTRL:			
-    case MDIO_CMD:				
+    case UMAC_MDIO_CMD:				
     case UMACMPDCTRL:	
     case UMACMDFCTRL:	
     case UMACMDFADDR0:	
@@ -1699,7 +1599,7 @@ static void bcmgenet_mmio_hfb_write(void *opaque, hwaddr addr, uint64_t val, uns
     }
 
     trace_bcmgenet_mmio_hfb_write(GENET_HFB_OFF + addr, val);
-
+        bcmgenet_set_irq(s,0);
     /* Pre-write filter */
     switch (addr) {
     /* Read only registers */
@@ -1730,6 +1630,8 @@ static const MemoryRegionOps bcmgenet_mmio_hfb_ops = {
 };
 
 
+
+ 
 #endif
 #if 0
 static void bcmgenet_init(Object *obj)

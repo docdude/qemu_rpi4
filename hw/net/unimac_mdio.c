@@ -165,6 +165,7 @@ static void phy_update_irq(BCMGENETState *s)
         qemu_set_irq(s->intrl2_1, s->isr & s->ier);
 }
 
+
 void phy_reset(BCMGENETState *s)
 {
     s->phy_status = (MII_BMSR_100TX_FD | MII_BMSR_100TX_HD | MII_BMSR_10T_FD |
@@ -261,6 +262,9 @@ static uint16_t do_phy_read(BCMGENETState *s, uint8_t phy_addr,
         break;
     case MII_BMSR: /* Basic Status */
         val = s->phy_status;
+                if (val & MII_BMSR_AN_COMP) 
+//        s->phy_int |= PHY_INT_DOWN;
+   	bcmgenet_update_status(s, UMAC_IRQ_LINK_UP, true, 0);
         break;
     case MII_PHYID1: /* ID1 */
         val = MII_BCM54213PE_PHYID1;
@@ -335,6 +339,8 @@ static uint16_t do_phy_read(BCMGENETState *s, uint8_t phy_addr,
         break;
     }
     trace_unimac_phy_read(phy_addr, reg, val);   
+    s->umacregs[UMAC_MDIO_CMD >> 2] = val;
+    bcmgenet_update_status(s, UMAC_IRQ_MDIO_DONE, true, 0);
     return val;
 }
 
@@ -539,7 +545,10 @@ printf("mii write addr 0x%lx value 0x%lx\n",addr,value);
         s->mdio_clk = (value | 0x3f0) >> 4;
         break;
     default:
-        g_assert_not_reached();
+//        g_assert_not_reached();
+        qemu_log_mask(LOG_GUEST_ERROR, "%s: invalid OP code %08lx\n",
+                      __func__, addr);
+        break;
     }
 
  //   unimac_mdio_transition(s, !!(s->phycr & MDIO_START_BUSY));

@@ -451,35 +451,6 @@ static void bcm2835_peripherals_realize(DeviceState *dev, Error **errp)
         error_propagate(errp, err);
         return;
     }
-#if 0    
-    /* GENET */
-
-    qdev_set_nic_properties(DEVICE(&s->ftgmac100), &nd_table[0]);
-    object_property_set_uint(OBJECT(&s->ftgmac100), 1, "phy_addr",
-                                 &err);    
-
-    object_property_set_bool(OBJECT(&s->ftgmac100), true, "realized",
-                                 &err);
-    if (err) {
-        error_propagate(errp, err);
-       return;
-    }
-    memory_region_add_subregion(&s->peri_mr, GENET_OFFSET,
-                sysbus_mmio_get_region(SYS_BUS_DEVICE(&s->ftgmac100), 0));
-
-        object_property_set_link(OBJECT(&s->mii), OBJECT(&s->ftgmac100),
-                                 "nic", &error_abort);
-                                 
-        object_property_set_bool(OBJECT(&s->mii), true, "realized",
-                                 &err);
-        if (err) {
-            error_propagate(errp, err);
-            return;
-        }
-
-    memory_region_add_subregion(&s->peri_mr, MII_OFFSET,
-                sysbus_mmio_get_region(SYS_BUS_DEVICE(&s->mii), 0));            
-#else    
 
     /* GENET */
 
@@ -493,7 +464,7 @@ static void bcm2835_peripherals_realize(DeviceState *dev, Error **errp)
        return;
     }
 //    memory_region_add_subregion(&s->peri_mr2, GENET_OFFSET,
-//                sysbus_mmio_get_region(SYS_BUS_DEVICE(&s->bcmgenet), 0));
+ //               sysbus_mmio_get_region(SYS_BUS_DEVICE(&s->bcmgenet), 0));
     memory_region_add_subregion_overlap(&s->peri_mr, GENET_OFFSET,
                                         &s->bcmgenet.bcmgenet, 1);
                                       
@@ -510,10 +481,10 @@ static void bcm2835_peripherals_realize(DeviceState *dev, Error **errp)
             return;
         }
 
-    memory_region_add_subregion_overlap(&s->peri_mr, MII_OFFSET,
+    memory_region_add_subregion_overlap(&s->bcmgenet.bcmgenet, GENET_UMAC_OFF + UMAC_MDIO_CMD,
                 sysbus_mmio_get_region(SYS_BUS_DEVICE(&s->unimac_mdio), 0),1);  
     
-#endif                  
+                 
     create_unimp(s, &s->armtmr, "bcm2835-sp804", ARMCTRL_TIMER0_1_OFFSET, 0x40);
  //   create_unimp(s, &s->cprman, "bcm2835-cprman", CPRMAN_OFFSET, 0x2000);
  //   create_unimp(s, &s->a2w, "bcm2835-a2w", A2W_OFFSET, 0x1000);

@@ -74,7 +74,7 @@ static void gpfsel_set(BCM2835GpioState *s, uint8_t reg, uint32_t value)
         if (index < sizeof(s->fsel)) {
             int fsel = (value >> (3 * i)) & 0x7;
             s->fsel[index] = fsel;
-            printf("*************************index %d fsel 0x%x\n",index, fsel);
+//            printf("*************************index %d fsel 0x%x\n",index, fsel);
         }
     }
 }
