@@ -50,7 +50,7 @@ static void bcmgenet_eval_irq(BCMGENETState *s, int reg)
 
     if (reg) {
       mask = s->intrl2_1regs[INTRL2_CPU_MASK_STATUS >> 2];
-      stat = s->intrl2_1regs[INTRL2_CPU_STAT >> 2]; //& ~UMAC_IRQ_TXDMA_DONE;
+      stat = s->intrl2_1regs[INTRL2_CPU_STAT >> 2]; 
       if (stat & ~mask) {
         bcmgenet_set_irq(s, 1);
       } else {
@@ -58,9 +58,9 @@ static void bcmgenet_eval_irq(BCMGENETState *s, int reg)
       }
     } else {
       mask = s->intrl2_0regs[INTRL2_CPU_MASK_STATUS >> 2];
-      stat = s->intrl2_0regs[INTRL2_CPU_STAT >> 2]; //& ~UMAC_IRQ_TXDMA_DONE;
+      stat = s->intrl2_0regs[INTRL2_CPU_STAT >> 2]; 
 //      printf("stat 0x%x\n",stat);
-//            printf("mask 0x%x\n",mask);
+//      printf("mask 0x%x\n",mask);
       if (stat & ~mask) {
         bcmgenet_set_irq(s,0);
       } else {
@@ -175,53 +175,8 @@ static void bcmgenet_update_mask_status(BCMGENETState *s, uint32_t bits, bool va
 
 
 
-#if 1
-/*
- * Receive and transmit Buffer Descriptor
- */
-typedef struct {
-    uint64_t        des0;
-    uint64_t        des1;
-    uint64_t        des2;        /* not used by HW */
-    uint64_t        des3;
-    uint64_t        des4;
-    uint64_t        des5;        
-} BCMGENETDesc;
- 
-static int bcmgenet_read_bd(BCMGENETDesc *bd, dma_addr_t addr)
-{
-    if (dma_memory_read(&address_space_memory, addr, bd, sizeof(*bd))) {
-        qemu_log_mask(LOG_GUEST_ERROR, "%s: failed to read descriptor @ 0x%"
-                      HWADDR_PRIx "\n", __func__, addr);
-        return -1;
-    }
-    bd->des0 = le64_to_cpu(bd->des0);
-    bd->des1 = le64_to_cpu(bd->des1);
-    bd->des2 = le64_to_cpu(bd->des2);
-    bd->des3 = le64_to_cpu(bd->des3);
-    bd->des4 = le64_to_cpu(bd->des4);
-    bd->des5 = le64_to_cpu(bd->des5);    
-    return 0;
-}
-#if 0
-static int bcmgenet_write_bd(BCMGENETDesc *bd, dma_addr_t addr)
-{
-    BCMGENETDesc lebd;
 
-    lebd.des0 = cpu_to_le64(bd->des0);
-    lebd.des1 = cpu_to_le64(bd->des1);
-    lebd.des2 = cpu_to_le64(bd->des2);
-    lebd.des3 = cpu_to_le64(bd->des3);
-    lebd.des4 = cpu_to_le64(bd->des4);
-    lebd.des5 = cpu_to_le64(bd->des5);    
-    if (dma_memory_write(&address_space_memory, addr, &lebd, sizeof(lebd))) {
-        qemu_log_mask(LOG_GUEST_ERROR, "%s: failed to write descriptor @ 0x%"
-                      HWADDR_PRIx "\n", __func__, addr);
-        return -1;
-    }
-    return 0;
-}
-#endif
+ 
 static void bcmgenet_do_tx(BCMGENETState *s, int ring)
 {
     dma_addr_t addr;
@@ -284,7 +239,8 @@ printf("*****umaccfg 0x%x tdmacfg 0x%x\n",umac_cfg,tdma_cfg);
 //    cons_idx = s->tdmaregs[TDMA_CONS_INDEX >> 2] & DMA_C_INDEX_MASK;
 //    desc_base = (prod_idx - 1)  * DMA_DESC_SIZE;
 //    desc_base = prod_idx  * DMA_DESC_SIZE;
-    desc_base = ((ring * (write_ptr/(3*ring))) + (prod_idx-1)) * DMA_DESC_SIZE;
+//    desc_base = ((ring * (write_ptr/(3*ring))) + (prod_idx-1)) * DMA_DESC_SIZE;
+    desc_base = ((write_ptr/3) + (prod_idx-1)) * DMA_DESC_SIZE;
     addr = s->tdmaregs[(desc_base + DMA_DESC_ADDRESS_HI) >> 2];
     addr = (addr << 32) | s->tdmaregs[(desc_base + DMA_DESC_ADDRESS_LO) >> 2];      
     dma_len_stat = s->tdmaregs[(desc_base + DMA_DESC_LENGTH_STATUS) >> 2];
@@ -299,23 +255,16 @@ printf("***********prod_idx 0x%x writeptr 0x%x descbase 0x%x addrlo 0x%lx addrhi
      */
   //  while (cons_idx != prod_idx) {
 if (cons_idx != prod_idx) {
-        BCMGENETDesc bd;
         int len;
 #if DEBUG        
 printf("********in loop addr 0x%lx len_stat 0x%x prod_idx 0x%x\n",addr,dma_len_stat, prod_idx);
 #endif
-        if (bcmgenet_read_bd(&bd, addr) ||
-            ((dma_len_stat & DMA_OWN) == 0)) {  //??use DMA_EOP??
+        if ((dma_len_stat & DMA_OWN) == 0) {  //??use DMA_EOP??
             /* Run out of descriptors to transmit.  */
       //      s->isr |= FTGMAC100_INT_NO_NPTXBUF;
        //     break;
         }
-//printf("*********bddes0 0x%lx\n",bd.des0);
-//printf("*********bddes1 0x%lx\n",bd.des1);
-//printf("*********bddes2 0x%lx\n",bd.des2);
-//printf("*********bddes3 0x%lx\n",bd.des3);
-//printf("*********bddes4 0x%lx\n",bd.des4);
-//printf("*********bddes5 0x%lx\n",bd.des5);
+
     /* If it's a start of frame, discard anything we had in the
      * buffer and start again. This should be an error condition
      * if we had something ... for now we ignore it
@@ -335,15 +284,16 @@ printf("********in loop addr 0x%lx len_stat 0x%x prod_idx 0x%x\n",addr,dma_len_s
                           __func__, len);
             trace_bcmgenet_tx_overflow();
             len =  sizeof(s->frame) - frame_size;
+            
         }
 
         if (dma_memory_read(&address_space_memory, addr, ptr, len)) {
             qemu_log_mask(LOG_GUEST_ERROR, "%s: failed to read packet @ 0x%lx\n",
                           __func__, addr);
- //           s->isr |= FTGMAC100_INT_NO_NPTXBUF;
+
             return;
         }
-    qemu_hexdump((void *)ptr, stderr, "", len);
+        qemu_hexdump((void *)ptr, stderr, "", len);
         ptr += len;
         frame_size += len;
         if (dma_len_stat & DMA_EOP) {
@@ -351,66 +301,68 @@ printf("********in loop addr 0x%lx len_stat 0x%x prod_idx 0x%x\n",addr,dma_len_s
             if (dma_len_stat & DMA_TX_APPEND_CRC) {
                 net_checksum_calculate(s->frame, frame_size);
             }
-#if 0   
-    int i=0;
+#if DEBUG   
+        int i=0;
 
-    printf("************crcbuf 0x");
+        printf("************crcbuf 0x");
         for (i = 0; i < frame_size; i++) {
-printf("%02x ",s->frame[i]);
-}
-printf("\n");
-#endif            
-            /* Last buffer in frame.  */
-            qemu_send_packet(qemu_get_queue(s->nic), s->frame, frame_size);
-            ptr = s->frame;
-            frame_size = 0;
+         printf("%02x ",s->frame[i]);
         }
+        printf("\n");
+#endif            
+       /* Last buffer in frame.  */
+       qemu_send_packet(qemu_get_queue(s->nic), s->frame, frame_size);
+       ptr = s->frame;
+       frame_size = 0;
+       }
 
-        dma_len_stat &= ~DMA_OWN;
-        /* Write back the modified descriptor.  */
-//        bcmgenet_write_bd(&bd, addr);
-//*ptr = bswap64((uint64_t)&s->frame);
+       dma_len_stat &= ~DMA_OWN;
 
-dma_memory_write(&address_space_memory, addr, ptr, sizeof(ptr));
-        /* Next ! */
-        /* Advance to the next descriptor.  */
-        /* Next ! */
+       /* Write back the modified descriptor.  */
+       dma_memory_write(&address_space_memory, addr, ptr, sizeof(ptr));
 
-         //       s->rdmaregs[RDMA_PROD_INDEX >> 2] = prod_idx;     
- //   }
 
-        /* Interrupt */
-        ints = 1 << ring;//UMAC_IRQ_TXDMA_DONE;
-    //    if (desc.control_word & TXDCTRL_INTME) {
-      //      ints |= GREG_STAT_TXINTME;
-       // }
-              cons_idx = (cons_idx + 1) & DMA_C_INDEX_MASK;
-        switch (ring) {
-           case 0:
-           s->tdmaregs[TDMA_CONS_INDEX_Q0 >> 2] = cons_idx;
-           break;
-           case 1:
-           s->tdmaregs[TDMA_CONS_INDEX_Q1 >> 2] = cons_idx;
-           break;
-           case 2:
-           s->tdmaregs[TDMA_CONS_INDEX_Q2 >> 2] = cons_idx;
-           break;
-           case 3:
-           s->tdmaregs[TDMA_CONS_INDEX_Q3 >> 2] = cons_idx;
-           break;
-           case 16:
-           s->tdmaregs[TDMA_CONS_INDEX_Q16 >> 2] = cons_idx;
-           break;
-        }         
-//        s->tdmaregs[TDMA_CONS_INDEX >> 2] = cons_idx;
-        bcmgenet_update_status(s, ints, true, 1);
+
+       /* Interrupt */
+       if (ring < 16) {
+         ints = UMAC_IRQ_TXDMA_MBDONE | UMAC_IRQ_TXDMA_PDONE | UMAC_IRQ_TXDMA_BDONE;
+         bcmgenet_update_status(s, ints, true, 0);
+
+         ints = 1 << ring;
+         bcmgenet_update_status(s, ints, true, 1);
+       } else {
+                ints = UMAC_IRQ_TXDMA_MBDONE | UMAC_IRQ_TXDMA_PDONE | UMAC_IRQ_TXDMA_BDONE;
+         bcmgenet_update_status(s, UMAC_IRQ_TXDMA_DONE, true, 0);
+       }  
+        
+       /* Advance to the next descriptor.  */   
+       /* Update consumer index */
+       cons_idx = (cons_idx + 1) & DMA_C_INDEX_MASK;
+       switch (ring) {
+          case 0:
+          s->tdmaregs[TDMA_CONS_INDEX_Q0 >> 2] = cons_idx;
+          break;
+          case 1:
+          s->tdmaregs[TDMA_CONS_INDEX_Q1 >> 2] = cons_idx;
+          break;
+          case 2:
+          s->tdmaregs[TDMA_CONS_INDEX_Q2 >> 2] = cons_idx;
+          break;
+          case 3:
+          s->tdmaregs[TDMA_CONS_INDEX_Q3 >> 2] = cons_idx;
+          break;
+          case 16:
+          s->tdmaregs[TDMA_CONS_INDEX_Q16 >> 2] = cons_idx;
+          break;
+       }         
+
     }
     /* We sent everything, set status/irq bit */
-  //  if (cons_idx == prod_idx)
- 
-    bcmgenet_update_status(s, UMAC_IRQ_TXDMA_DONE, true, 0);
+    /* Interrupt TX Done */
+                    ints = UMAC_IRQ_TXDMA_MBDONE | UMAC_IRQ_TXDMA_PDONE | UMAC_IRQ_TXDMA_BDONE;
+    bcmgenet_update_status(s, ints, true, 0);
 }
-#endif
+
 
 static bool bcmgenet_rx_full(BCMGENETState *s, uint32_t prod_idx, uint32_t cons_idx)
 {
@@ -441,8 +393,8 @@ printf("*****CAN RECEIVE umaccfg 0x%x cfg 0x%x\n",umac_cfg,rdma_cfg);
     }
   // 	bcmgenet_update_status(s, UMAC_IRQ_LINK_UP, true, 0);
     /* Check RX availability */
-    prod_idx = s->rdmaregs[RDMA_PROD_INDEX >> 2] & DMA_P_INDEX_MASK;
-    cons_idx = s->rdmaregs[RDMA_CONS_INDEX >> 2] & DMA_C_INDEX_MASK;
+    prod_idx = s->rdmaregs[RDMA_PROD_INDEX_Q16 >> 2] & DMA_P_INDEX_MASK;
+    cons_idx = s->rdmaregs[RDMA_CONS_INDEX_Q16 >> 2] & DMA_C_INDEX_MASK;
     full = bcmgenet_rx_full(s, prod_idx, cons_idx);
 
     trace_bcmgenet_rx_check(!full, prod_idx, cons_idx);
@@ -537,7 +489,6 @@ static ssize_t bcmgenet_receive(NetClientState *nc, const uint8_t *buf,
     uint32_t mac_crc, cons_idx, prod_idx, max_fsize;
     uint32_t fcs_size, ints, rdma_cfg, umac_cfg; /*csum, coff,*/ 
     uint8_t smallbuf[60];
-    BCMGENETDesc bd;
   
     unsigned int rx_cond;
     dma_addr_t addr;
@@ -618,8 +569,8 @@ printf("\n");
 	size += 4;//ETH_FCS_LEN;
     }
     /* Get ring pointers */
-    prod_idx = s->rdmaregs[RDMA_PROD_INDEX >> 2] & DMA_P_INDEX_MASK;
-    cons_idx = s->rdmaregs[RDMA_CONS_INDEX >> 2] & DMA_C_INDEX_MASK;
+    prod_idx = s->rdmaregs[RDMA_PROD_INDEX_Q16 >> 2] & DMA_P_INDEX_MASK;
+    cons_idx = s->rdmaregs[RDMA_CONS_INDEX_Q16 >> 2] & DMA_C_INDEX_MASK;
     trace_bcmgenet_rx_process(cons_idx, prod_idx);
  
         desc_base = (prod_idx) * DMA_DESC_SIZE;
@@ -639,17 +590,23 @@ printf("RX descbase 0x%x prod_idx 0x%x\n",desc_base,prod_idx);
 #endif    
 
     qemu_hexdump((void *)buf, stderr, "", size);
-        cons_idx = (cons_idx + 1) & DMA_C_INDEX_MASK;
-        s->rdmaregs[RDMA_CONS_INDEX >> 2] = cons_idx; 
-                prod_idx = (prod_idx + 1) & DMA_P_INDEX_MASK;
-        s->rdmaregs[RDMA_PROD_INDEX >> 2] = prod_idx; 
-   if (rx_cond == rx_match_mac) {
-            ints = UMAC_IRQ_RXDMA_DONE | UMAC_IRQ_RXDMA_BDONE | UMAC_IRQ_RXDMA_PDONE |s->ring_idx;
+    /* Update Consumer Index */
+    cons_idx = (cons_idx + 1) & DMA_C_INDEX_MASK;
+    s->rdmaregs[RDMA_CONS_INDEX_Q16 >> 2] = cons_idx;
+    /* Update Producer Index */ 
+    prod_idx = (prod_idx + 1) & DMA_P_INDEX_MASK;
+    s->rdmaregs[RDMA_PROD_INDEX_Q16 >> 2] = prod_idx; 
+
+    if (rx_cond == rx_match_mac) {
+        
+        ints = UMAC_IRQ_RXDMA_DONE | UMAC_IRQ_RXDMA_BDONE | UMAC_IRQ_RXDMA_PDONE;
 //    if (sungem_rx_full(s, kick, done)) {
  //       ints |= GREG_STAT_RXNOBUF;
  //   }
-     s->rdmaregs[(desc_base + DMA_DESC_LENGTH_STATUS) >> 2] = dma_len_stat;
-    bcmgenet_update_status(s, ints, true, 0);
+//        bcmgenet_update_status(s, ints, true, 0);
+        bcmgenet_update_status(s, UMAC_IRQ_RXDMA_DONE, true, 0);
+        s->rdmaregs[(desc_base + DMA_DESC_LENGTH_STATUS) >> 2] = dma_len_stat;
+
     }     
     /* Ring full ? Can't receive */
     if (bcmgenet_rx_full(s, prod_idx, cons_idx)) {
@@ -706,13 +663,7 @@ printf("RX descbase 0x%x prod_idx 0x%x\n",desc_base,prod_idx);
 //    pci_dma_write(d, dbase + done * sizeof(desc), &desc, sizeof(desc));
 
    dma_memory_write(&address_space_memory, addr+2, buf, buf_len);
-      bcmgenet_read_bd(&bd, addr);
-#if DEBUG      
-printf("*********bddes0 0x%lx\n",bd.des0);
-printf("*********bddes1 0x%lx\n",bd.des1);
-printf("*********bddes2 0x%lx\n",bd.des2);
-printf("*********bddes3 0x%lx\n",bd.des3); 
-#endif
+
 
     /* Write buffer out */
 //        bcmgenet_write_bd(&bd, addr);
@@ -892,6 +843,9 @@ static void bcmgenet_mmio_ext_write(void *opaque, hwaddr addr, uint64_t val, uns
     /* Post write action */
     switch (addr) {
     case EXT_RGMII_OOB_CTRL:
+        if (val & RGMII_LINK)
+           bcmgenet_update_status(s, UMAC_IRQ_LINK_UP, true, 0);
+        break;     	
     case EXT_EXT_PWR_MGMT:
     case EXT_GPHY_CTRL:
         break;
@@ -1282,9 +1236,9 @@ static void bcmgenet_mmio_tdma_write(void *opaque, hwaddr addr, uint64_t val,
          bcmgenet_do_tx(s,ring_idx);
             //     cons_idx = (cons_idx + 1) & DMA_C_INDEX_MASK;
      //   s->tdmaregs[TDMA_CONS_INDEX >> 2] += 1;
-     //   if (bcmgenet_can_receive(qemu_get_queue(s->nic))) {
-       //     qemu_flush_queued_packets(qemu_get_queue(s->nic));
-      //  }
+        if (bcmgenet_can_receive(qemu_get_queue(s->nic))) {
+            qemu_flush_queued_packets(qemu_get_queue(s->nic));
+        }
          break;
 	
 
@@ -1405,16 +1359,62 @@ static void bcmgenet_mmio_rdma_write(void *opaque, hwaddr addr, uint64_t val,
 
     /* Post write action */
     switch (addr) {
-    case RDMA_READ_PTR:
-    case RDMA_CONS_INDEX:		
-    case RDMA_PROD_INDEX:		
-    case RDMA_RING_BUF_SIZE:		
-    case RDMA_START_ADDR:		
-    case RDMA_END_ADDR:			
-    case RDMA_MBUF_DONE_THRESH:	
-    case RDMA_XON_XOFF_THRESH:			
+    case RDMA_CONS_INDEX_Q0:
+    case RDMA_CONS_INDEX_Q1:
+    case RDMA_CONS_INDEX_Q2:
+    case RDMA_CONS_INDEX_Q3:
+    case RDMA_CONS_INDEX_Q16:  
+        break;
+    case RDMA_PROD_INDEX_Q0:
+    case RDMA_PROD_INDEX_Q1:
+    case RDMA_PROD_INDEX_Q2:
+    case RDMA_PROD_INDEX_Q3:
+    case RDMA_PROD_INDEX_Q16:
+         break;
 	
-    case RDMA_WRITE_PTR:			
+
+    case RDMA_READ_PTR_Q0:
+    case RDMA_READ_PTR_Q1:
+    case RDMA_READ_PTR_Q2:
+    case RDMA_READ_PTR_Q3:
+    case RDMA_READ_PTR_Q16:
+	break;         
+    case RDMA_RING_BUF_SIZE_Q0:
+    case RDMA_RING_BUF_SIZE_Q1:
+    case RDMA_RING_BUF_SIZE_Q2:
+    case RDMA_RING_BUF_SIZE_Q3:
+    case RDMA_RING_BUF_SIZE_Q16:
+        break;	
+    case RDMA_START_ADDR_Q0:
+    case RDMA_START_ADDR_Q1:
+    case RDMA_START_ADDR_Q2:
+    case RDMA_START_ADDR_Q3:
+    case RDMA_START_ADDR_Q16:	
+        break;	
+    case RDMA_END_ADDR_Q0:
+    case RDMA_END_ADDR_Q1:
+    case RDMA_END_ADDR_Q2:
+    case RDMA_END_ADDR_Q3:
+    case RDMA_END_ADDR_Q16:	
+        break;		
+    case RDMA_MBUF_DONE_THRESH_Q0:
+    case RDMA_MBUF_DONE_THRESH_Q1:
+    case RDMA_MBUF_DONE_THRESH_Q2:
+    case RDMA_MBUF_DONE_THRESH_Q3:
+    case RDMA_MBUF_DONE_THRESH_Q16:	
+        break;	
+    case RDMA_XON_XOFF_THRESH_Q0:
+    case RDMA_XON_XOFF_THRESH_Q1:
+    case RDMA_XON_XOFF_THRESH_Q2:
+    case RDMA_XON_XOFF_THRESH_Q3:
+    case RDMA_XON_XOFF_THRESH_Q16:
+        break;		
+    case RDMA_WRITE_PTR_Q0:
+    case RDMA_WRITE_PTR_Q1:
+    case RDMA_WRITE_PTR_Q2:
+    case RDMA_WRITE_PTR_Q3:
+    case RDMA_WRITE_PTR_Q16:			
+        break;			
 
     case RDMA_RING_CFG:			
       
@@ -1462,12 +1462,12 @@ static uint64_t bcmgenet_mmio_umac_read(void *opaque, hwaddr addr, unsigned size
     
     switch (addr) {
     case UMAC_CMD:
-
-/////////////////////////////  bcmgenet_update_status(s,UMAC_IRQ_UMAC,true,0);
+////////////////////////
+//  bcmgenet_update_status(s,UMAC_IRQ_UMAC,false,0);
         break;
     case UMAC_MDIO_CMD:				
 
-  //      bcmgenet_update_status(s, UMAC_IRQ_MDIO_DONE, true, 0);
+
 
         break;        
     case UMAC_MAC0:
@@ -1520,14 +1520,14 @@ static void bcmgenet_mmio_umac_write(void *opaque, hwaddr addr, uint64_t val,
             bcmgenet_reset(DEVICE(s));
          printf("***********RESET detected********\n");
         }
-        if ((s->rdmaregs[RDMA_CTRL >> 2] & DMA_EN) != 0 &&
-            (s->umacregs[UMAC_CMD >> 2] & CMD_RX_EN) != 0) {	
+   //     if ((s->rdmaregs[RDMA_CTRL >> 2] & DMA_EN) != 0 &&
+     //       (s->umacregs[UMAC_CMD >> 2] & CMD_RX_EN) != 0) {	
+       //    qemu_flush_queued_packets(qemu_get_queue(s->nic));
+       // }
+        if (bcmgenet_can_receive(qemu_get_queue(s->nic))) {
             qemu_flush_queued_packets(qemu_get_queue(s->nic));
-        }
-    //    if (bcmgenet_can_receive(qemu_get_queue(s->nic))) {
-      //      qemu_flush_queued_packets(qemu_get_queue(s->nic));
-       // }	
- //                bcmgenet_do_tx(s);
+        }	
+
         break;		
     case UMAC_MAC0: /* MAC */
         s->conf.macaddr.a[5] = val >> 24;

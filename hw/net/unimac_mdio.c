@@ -202,7 +202,7 @@ static uint16_t do_phy_shdw_write(BCMGENETState *s, uint16_t val)
 {
     uint32_t data;
     trace_unimac_phy_shdw_write( val);
-    printf("*******MMD_CTL_DEVAD %x\n", MIIM_BCM54XX_SHD_REG(val));
+//    printf("*******MMD_CTL_DEVAD %x\n", MIIM_BCM54XX_SHD_REG(val));
 //    s->phy_shdwregs[MIIM_BCM54XX_SHD_REG(val)] = val;
     switch (MIIM_BCM54XX_SHD_REG(val)) {
          case 0x08:  //  R/O   move   LED Status Register (Address 1Ch, Shadow Value 01000)
@@ -262,9 +262,9 @@ static uint16_t do_phy_read(BCMGENETState *s, uint8_t phy_addr,
         break;
     case MII_BMSR: /* Basic Status */
         val = s->phy_status;
-                if (val & MII_BMSR_AN_COMP) 
+ //               if (val & MII_BMSR_AN_COMP) 
 //        s->phy_int |= PHY_INT_DOWN;
-   	bcmgenet_update_status(s, UMAC_IRQ_LINK_UP, true, 0);
+ //  	bcmgenet_update_status(s, UMAC_IRQ_LINK_UP, true, 0);
         break;
     case MII_PHYID1: /* ID1 */
         val = MII_BCM54213PE_PHYID1;
@@ -340,7 +340,7 @@ static uint16_t do_phy_read(BCMGENETState *s, uint8_t phy_addr,
     }
     trace_unimac_phy_read(phy_addr, reg, val);   
     s->umacregs[UMAC_MDIO_CMD >> 2] = val;
-    bcmgenet_update_status(s, UMAC_IRQ_MDIO_DONE, true, 0);
+
     return val;
 }
 
@@ -517,23 +517,29 @@ static uint64_t unimac_mdio_read(void *opaque, hwaddr addr, unsigned size)
 {
     UNIMACState *s = UNIMAC_MDIO(opaque);
     unimac_mdio_transition(s, !MDIO_START_BUSY);
+    uint32_t value;
 //printf("mii read addr 0x%lx phycr 0x%x\n",addr,s->phycr);    
     switch (addr) {
     case 0x0:
-        return s->phycr;
+        value = s->phycr;
+        break;
     case 0x4:
-        return s->mdio_clk;
+        value = s->mdio_clk;
+        break;
     default:
         g_assert_not_reached();
     }
- 
+//    bcmgenet_update_status(s->nic, UMAC_IRQ_MDIO_DONE, true, 0);
+    trace_bcmgenet_mmio_umac_read(0xe14 + addr, value);
+    return value;
+
 }
 
 static void unimac_mdio_write(void *opaque, hwaddr addr,
                              uint64_t value, unsigned size)
 {
     UNIMACState *s = UNIMAC_MDIO(opaque);
-
+    trace_bcmgenet_mmio_umac_write(0xe14 + addr, value);
 #if DEBUG
 printf("mii write addr 0x%lx value 0x%lx\n",addr,value);
 #endif
@@ -550,7 +556,7 @@ printf("mii write addr 0x%lx value 0x%lx\n",addr,value);
                       __func__, addr);
         break;
     }
-
+    bcmgenet_update_status(s->nic, UMAC_IRQ_MDIO_DONE, true, 0);
  //   unimac_mdio_transition(s, !!(s->phycr & MDIO_START_BUSY));
     unimac_mdio_do_phy_ctl(s);  
 }

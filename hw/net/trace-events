@@ -423,26 +423,26 @@ bcmgenet_rx_reset(void) "RX reset"
 bcmgenet_rx_kick(uint64_t val) "RXDMA_KICK written to %"PRIu64
 bcmgenet_reset(bool pci_reset) "Full reset (PCI:%d)"
 
-bcmgenet_mmio_sys_write(uint64_t addr, uint64_t val) "MMIO sys write to 0x%"PRIx64" val=0x%"PRIx64
-bcmgenet_mmio_sys_read(uint64_t addr, uint64_t val) "MMIO sys read from 0x%"PRIx64" val=0x%"PRIx64
-bcmgenet_mmio_ext_write(uint64_t addr, uint64_t val) "MMIO ext write to 0x%"PRIx64" val=0x%"PRIx64
-bcmgenet_mmio_ext_read(uint64_t addr, uint64_t val) "MMIO ext read from 0x%"PRIx64" val=0x%"PRIx64
-bcmgenet_mmio_tdma_write(uint64_t addr, uint64_t val) "MMIO tdma write to 0x%"PRIx64" val=0x%"PRIx64
-bcmgenet_mmio_tdma_read(uint64_t addr, uint64_t val) "MMIO tdma read from 0x%"PRIx64" val=0x%"PRIx64
-bcmgenet_mmio_rdma_write(uint64_t addr, uint64_t val) "MMIO rdma write to 0x%"PRIx64" val=0x%"PRIx64
-bcmgenet_mmio_rdma_read(uint64_t addr, uint64_t val) "MMIO rdma read from 0x%"PRIx64" val=0x%"PRIx64
-bcmgenet_mmio_umac_write(uint64_t addr, uint64_t val) "MMIO umac write to 0x%"PRIx64" val=0x%"PRIx64
-bcmgenet_mmio_umac_read(uint64_t addr, uint64_t val) "MMIO umac read from 0x%"PRIx64" val=0x%"PRIx64
-bcmgenet_mmio_rbuf_write(uint64_t addr, uint64_t val) "MMIO rbuf write to 0x%"PRIx64" val=0x%"PRIx64
-bcmgenet_mmio_rbuf_read(uint64_t addr, uint64_t val) "MMIO tbuf read from 0x%"PRIx64" val=0x%"PRIx64
-bcmgenet_mmio_tbuf_write(uint64_t addr, uint64_t val) "MMIO rbuf write to 0x%"PRIx64" val=0x%"PRIx64
-bcmgenet_mmio_tbuf_read(uint64_t addr, uint64_t val) "MMIO tbuf read from 0x%"PRIx64" val=0x%"PRIx64
-bcmgenet_mmio_intrl2_0_write(uint64_t addr, uint64_t val) "MMIO intrl2_0 write to 0x%"PRIx64" val=0x%"PRIx64
-bcmgenet_mmio_intrl2_0_read(uint64_t addr, uint64_t val) "MMIO intrl2_0 read from 0x%"PRIx64" val=0x%"PRIx64
-bcmgenet_mmio_intrl2_1_write(uint64_t addr, uint64_t val) "MMIO intrl2_1 write to 0x%"PRIx64" val=0x%"PRIx64
-bcmgenet_mmio_intrl2_1_read(uint64_t addr, uint64_t val) "MMIO intrl2_1 read from 0x%"PRIx64" val=0x%"PRIx64
-bcmgenet_mmio_hfb_write(uint64_t addr, uint64_t val) "MMIO hfb write to 0x%"PRIx64" val=0x%"PRIx64
-bcmgenet_mmio_hfb_read(uint64_t addr, uint64_t val) "MMIO hfb read from 0x%"PRIx64" val=0x%"PRIx64
+bcmgenet_mmio_sys_write(uint64_t addr, uint64_t val) "to 0x%"PRIx64" val=0x%"PRIx64
+bcmgenet_mmio_sys_read(uint64_t addr, uint64_t val) "from 0x%"PRIx64" val=0x%"PRIx64
+bcmgenet_mmio_ext_write(uint64_t addr, uint64_t val) "to 0x%"PRIx64" val=0x%"PRIx64
+bcmgenet_mmio_ext_read(uint64_t addr, uint64_t val) "from 0x%"PRIx64" val=0x%"PRIx64
+bcmgenet_mmio_tdma_write(uint64_t addr, uint64_t val) "to 0x%"PRIx64" val=0x%"PRIx64
+bcmgenet_mmio_tdma_read(uint64_t addr, uint64_t val) "from 0x%"PRIx64" val=0x%"PRIx64
+bcmgenet_mmio_rdma_write(uint64_t addr, uint64_t val) "to 0x%"PRIx64" val=0x%"PRIx64
+bcmgenet_mmio_rdma_read(uint64_t addr, uint64_t val) "from 0x%"PRIx64" val=0x%"PRIx64
+bcmgenet_mmio_umac_write(uint64_t addr, uint64_t val) "to 0x%"PRIx64" val=0x%"PRIx64
+bcmgenet_mmio_umac_read(uint64_t addr, uint64_t val) "from 0x%"PRIx64" val=0x%"PRIx64
+bcmgenet_mmio_rbuf_write(uint64_t addr, uint64_t val) "to 0x%"PRIx64" val=0x%"PRIx64
+bcmgenet_mmio_rbuf_read(uint64_t addr, uint64_t val) "from 0x%"PRIx64" val=0x%"PRIx64
+bcmgenet_mmio_tbuf_write(uint64_t addr, uint64_t val) "to 0x%"PRIx64" val=0x%"PRIx64
+bcmgenet_mmio_tbuf_read(uint64_t addr, uint64_t val) "from 0x%"PRIx64" val=0x%"PRIx64
+bcmgenet_mmio_intrl2_0_write(uint64_t addr, uint64_t val) "to 0x%"PRIx64" val=0x%"PRIx64
+bcmgenet_mmio_intrl2_0_read(uint64_t addr, uint64_t val) "from 0x%"PRIx64" val=0x%"PRIx64
+bcmgenet_mmio_intrl2_1_write(uint64_t addr, uint64_t val) "to 0x%"PRIx64" val=0x%"PRIx64
+bcmgenet_mmio_intrl2_1_read(uint64_t addr, uint64_t val) "from 0x%"PRIx64" val=0x%"PRIx64
+bcmgenet_mmio_hfb_write(uint64_t addr, uint64_t val) "to 0x%"PRIx64" val=0x%"PRIx64
+bcmgenet_mmio_hfb_read(uint64_t addr, uint64_t val) "from 0x%"PRIx64" val=0x%"PRIx64
 bcmgenet_link_status_changed(bool status) "New link status: %d"
 
 # unimac_mdio.c
