@@ -1,0 +1,102 @@
+WARNING: Image format was not specified for '/home/jloyamd/Desktop/2020-05-27-raspios-buster-full-armhf.img' and probing guessed raw.
+         Automatically detecting the format is dangerous for raw images, write operations on block 0 will be restricted.
+         Specify the 'raw' format explicitly to remove the restrictions.
+****************Dtb start 0x8000000
+******************************RESET******************************
+********reparent0[0]
+18016@1595985217.119771:bcmgenet_rx_mac_disabled Check RX MAC disabled
+18016@1595985217.119841:bcmgenet_rx_mac_disabled Check RX MAC disabled
+[    0.000000] Booting Linux on physical CPU 0x0000000000 [0x410fd083]
+[    0.000000] Linux version 5.4.50-v8+ (root@Hermes) (gcc version 9.3.0 (Ubuntu 9.3.0-10ubuntu1)) #37 SMP PREEMPT Mon Jul 27 18:42:15 MDT 2020
+[    0.000000] Machine model: Raspberry Pi 4 Model B
+[    0.000000] earlycon: pl11 at MMIO 0x00000000fe201000 (options '')
+[    0.000000] printk: bootconsole [pl11] enabled
+[    0.000000] efi: Getting EFI parameters from FDT:
+[    0.000000] efi: UEFI not found.
+[    0.000000] Reserved memory: created CMA memory pool at 0x000000002c000000, size 64 MiB
+[    0.000000] OF: reserved mem: initialized node linux,cma, compatible id shared-dma-pool
+[    0.000000] On node 0 totalpages: 245760
+[    0.000000]   DMA zone: 3840 pages used for memmap
+[    0.000000]   DMA zone: 0 pages reserved
+[    0.000000]   DMA zone: 245760 pages, LIFO batch:63
+[    0.000000] percpu: Embedded 31 pages/cpu s89240 r8192 d29544 u126976
+[    0.000000] pcpu-alloc: s89240 r8192 d29544 u126976 alloc=31*4096
+[    0.000000] pcpu-alloc: [0] 0 [0] 1 [0] 2 [0] 3 
+[    0.000000] Detected PIPT I-cache on CPU0
+[    0.000000] CPU features: detected: EL2 vector hardening
+[    0.000000] ARM_SMCCC_ARCH_WORKAROUND_1 missing from firmware
+[    0.000000] Built 1 zonelists, mobility grouping on.  Total pages: 241920
+[    0.000000] Kernel command line: rw rootwait earlycon=pl011,0xfe201000 console=serial0,115200 console=ttyAMA0 root=/dev/mmcblk0p2 init=/sbin/init rootfstype=ext4 dwc_otg.lpm_enable=0 elevator=deadline kgdboc=ttyAMA0,115200 loglevel=8 debug ip=dhcp
+[    0.000000] Dentry cache hash table entries: 131072 (order: 8, 1048576 bytes, linear)
+[    0.000000] Inode-cache hash table entries: 65536 (order: 7, 524288 bytes, linear)
+[    0.000000] mem auto-init: stack:off, heap alloc:off, heap free:off
+[    0.000000] Memory: 880128K/983040K available (9596K kernel code, 1194K rwdata, 3520K rodata, 1088K init, 1197K bss, 37376K reserved, 65536K cma-reserved)
+[    0.000000] SLUB: HWalign=64, Order=0-3, MinObjects=0, CPUs=4, Nodes=1
+[    0.000000] ftrace: allocating 31796 entries in 125 pages
+[    0.000000] rcu: Preemptible hierarchical RCU implementation.
+[    0.000000] rcu: 	RCU restricting CPUs from NR_CPUS=256 to nr_cpu_ids=4.
+[    0.000000] 	Tasks RCU enabled.
+[    0.000000] rcu: RCU calculated value of scheduler-enlistment delay is 25 jiffies.
+[    0.000000] rcu: Adjusting geometry for rcu_fanout_leaf=16, nr_cpu_ids=4
+[    0.000000] NR_IRQS: 64, nr_irqs: 64, preallocated irqs: 0
+[    0.000000] GIC: Using split EOI/Deactivate mode
+[    0.000000] random: get_random_bytes called from start_kernel+0x31c/0x4a8 with crng_init=0
+[    0.000000] arch_timer: cp15 timer(s) running at 62.50MHz (phys).
+[    0.000000] clocksource: arch_sys_counter: mask: 0xffffffffffffff max_cycles: 0x1cd42e208c, max_idle_ns: 881590405314 ns
+[    0.000820] sched_clock: 56 bits at 62MHz, resolution 16ns, wraps every 4398046511096ns
+[    0.071784] Console: colour dummy device 80x25
+[    0.086109] Calibrating delay loop (skipped), value calculated using timer frequency.. 125.00 BogoMIPS (lpj=250000)
+[    0.087866] pid_max: default: 32768 minimum: 301
+[    0.118229] Mount-cache hash table entries: 2048 (order: 2, 16384 bytes, linear)
+[    0.119234] Mountpoint-cache hash table entries: 2048 (order: 2, 16384 bytes, linear)
+[    0.298621] Disabling memory control group subsystem
+[    0.539389] ASID allocator initialised with 32768 entries
+[    0.556252] rcu: Hierarchical SRCU implementation.
+[    0.633834] EFI services will not be available.
+[    0.658012] smp: Bringing up secondary CPUs ...
+[    0.715925] Detected PIPT I-cache on CPU1
+[    0.721104] CPU1: Booted secondary processor 0x0000000001 [0x410fd083]
+[    0.805549] Detected PIPT I-cache on CPU2
+[    0.806578] CPU2: Booted secondary processor 0x0000000002 [0x410fd083]
+[    0.874206] Detected PIPT I-cache on CPU3
+[    0.875288] CPU3: Booted secondary processor 0x0000000003 [0x410fd083]
+[    0.882768] smp: Brought up 1 node, 4 CPUs
+[    0.887206] SMP: Total of 4 processors activated.
+[    0.888487] CPU features: detected: 32-bit EL0 Support
+[    0.890564] CPU features: detected: CRC32 instructions
+[    2.219059] CPU: All CPU(s) started at EL2
+[    2.233859] alternatives: patching kernel code
+[    2.392565] devtmpfs: initialized
+[    2.842491] Enabled cp15_barrier support
+[    2.844736] Enabled setend support
+[    2.864861] clocksource: jiffies: mask: 0xffffffff max_cycles: 0xffffffff, max_idle_ns: 7645041785100000 ns
+[    2.866907] futex hash table entries: 1024 (order: 4, 65536 bytes, linear)
+[    2.932001] pinctrl core: initialized pinctrl subsystem
+[    3.038936] DMI not present or invalid.
+[    3.063443] NET: Registered protocol family 16
+[    3.254044] DMA: preallocated 256 KiB pool for atomic allocations
+[    3.307711] cpuidle: using governor menu
+[    3.329584] hw-breakpoint: found 6 breakpoint and 4 watchpoint registers.
+[    3.352542] Serial: AMBA PL011 UART driver
+[    3.523960] bcm2835-mbox fe00b880.mailbox: mailbox enabled
+[    3.808467] raspberrypi-firmware soc:firmware: Attached to firmware from 1970-01-05 00:12, variant start
+[    3.815791] raspberrypi-firmware soc:firmware: Firmware hash is ffffffc01067e588ffffffc00000000000000000
+[    5.333610] bcm2835-dma fe007000.dma: DMA legacy API manager, dmachans=0x1
+bcm2835_dma_read: offset 0x20
+bcm2835_dma_read: offset 0x20
+bcm2835_dma_read: offset 0x20
+bcm2835_dma_read: offset 0x20
+bcm2835_dma_read: offset 0x20
+bcm2835_dma_read: offset 0x20
+[    5.504000] vgaarb: loaded
+[    5.530745] SCSI subsystem initialized
+[    5.548608] usbcore: registered new interface driver usbfs
+[    5.553028] usbcore: registered new interface driver hub
+[    5.560499] usbcore: registered new device driver usb
+[    5.709685] clocksource: Switched to clocksource arch_sys_counter
+[   10.107847] VFS: Disk quotas dquot_6.6.0
+[   10.111447] VFS: Dquot-cache hash table entries: 512 (order 0, 4096 bytes)
+[   10.120679] FS-Cache: Loaded
+[   10.127765] CacheFiles: Loaded
+QEMU: Terminated
+

@@ -403,24 +403,28 @@ bcmgenet_tx_overflow(void) "TX packet queue overflow"
 bcmgenet_tx_finished(uint32_t size) "TX completing %"PRIu32 " bytes packet"
 bcmgenet_tx_do(void) "TX Do..."
 bcmgenet_tx_disabled(void) "TX not enabled"
-bcmgenet_tx_process(uint32_t cons_idx, uint32_t prod_idx) "TX processing cons_idx=%"PRIu32", prod_idx=%"PRIu32
-bcmgenet_tx_desc(uint32_t comp, uint64_t control, uint64_t buffer) "TX desc %"PRIu32 ": 0x%"PRIx64" 0x%"PRIx64
+bcmgenet_tx_process(uint32_t cons_idx, uint32_t prod_idx) "TX processing cons_idx=%"PRId32", prod_idx=%"PRId32
+bcmgenet_tx_desc(uint32_t prod_idx, uint64_t control, uint64_t buffer) "TX desc %"PRId32 ": 0x%"PRIx64" 0x%"PRIx64
 bcmgenet_tx_reset(void) "TX reset"
 bcmgenet_rx_mac_disabled(void) "Check RX MAC disabled"
 bcmgenet_rx_txdma_disabled(void) "Check RX TXDMA disabled"
-bcmgenet_rx_check(bool full, uint32_t kick, uint32_t done) "Check RX %d (kick=%"PRIu32", done=%"PRIu32")"
+bcmgenet_rx_check(bool full, uint32_t prod_idx, uint32_t cons_idx) "Check RX %d (prod_idx=%"PRId32", cons_idx=%"PRId32")"
 bcmgenet_rx_mac_check(uint32_t mac0, uint32_t mac1, uint32_t mac2) "     Word MAC: 0x%04"PRIx32" 0x%04"PRIx32" 0x%04"PRIx32
-bcmgenet_rx_mac_multicast(void) "Multicast"
 bcmgenet_rx_mac_compare(uint32_t mac0, uint32_t mac1, uint32_t mac2) "Compare MAC: 0x%04"PRIx32" 0x%04"PRIx32" 0x%04"PRIx32".."
+bcmgenet_rx_mac_multicast(void) "Multicast"
+bcmgenet_rx_mac_broadcast(void) "Broadcast"
+bcmgenet_rx_mac_promisc(void) "Promiscuous"
 bcmgenet_rx_packet(size_t size) "RX got %zu bytes packet"
 bcmgenet_rx_disabled(void) "RX not enabled"
 bcmgenet_rx_bad_frame_size(size_t size) "RX bad frame size %zu, dropped"
+bcmgenet_rx_matched(void) "**Match local MAC address**"
 bcmgenet_rx_unmatched(void) "No match, dropped"
 bcmgenet_rx_process(uint32_t cons_idx, uint32_t prod_idx) "RX processing cons_idx=%"PRIu32", prod_idx=%"PRIu32
 bcmgenet_rx_ringfull(void) "RX ring full"
 bcmgenet_rx_desc(uint64_t control, uint32_t flags, uint64_t buffer) "RX desc: 0x%"PRIx64" DMA_FLAGS 0x%"PRIx32" 0x%"PRIx64
 bcmgenet_rx_reset(void) "RX reset"
 bcmgenet_rx_kick(uint64_t val) "RXDMA_KICK written to %"PRIu64
+bcmgenet_rx_norxd(void) "no free rx descriptors available"
 bcmgenet_reset(bool pci_reset) "Full reset (PCI:%d)"
 
 bcmgenet_mmio_sys_write(uint64_t addr, uint64_t val) "to 0x%"PRIx64" val=0x%"PRIx64

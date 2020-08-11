@@ -117,9 +117,22 @@
 
 
 #define GENET_RBUF_OFF			0x0300UL
-#define RBUF_TBUF_SIZE_CTRL		0xb4
+
 #define RBUF_CTRL			0x00
-#define RBUF_ALIGN_2B			BIT(1)
+#define  RBUF_64B_EN			(1 << 0)
+#define  RBUF_ALIGN_2B			(1 << 1)
+#define  RBUF_BAD_DIS			(1 << 2)
+#define RBUF_STATUS			0x0C
+#define  RBUF_STATUS_WOL		(1 << 0)
+#define  RBUF_STATUS_MPD_INTR_ACTIVE	(1 << 1)
+#define  RBUF_STATUS_ACPI_INTR_ACTIVE	(1 << 2)
+#define RBUF_CHK_CTRL			0x14
+#define  RBUF_RXCHK_EN			(1 << 0)
+#define  RBUF_SKIP_FCS			(1 << 4)
+#define RBUF_ENERGY_CTRL		0x9c
+#define  RBUF_EEE_EN			(1 << 0)
+#define  RBUF_PM_EN			(1 << 1)
+#define RBUF_TBUF_SIZE_CTRL		0xb4
 
 #define GENET_TBUF_OFF			0x0600UL
 #define TBUF_CTRL			0x0000UL
@@ -222,6 +235,23 @@
 #define DMA_TX_DO_CSUM			BIT(4) //0x0010
 #define DMA_TX_QTAG_SHIFT		7
 
+#define DMA_RX_CHK_V3PLUS		BiT(15)
+#define DMA_RX_CHK_V12			BIT(12)
+#define DMA_RX_BRDCAST			BIT(6)
+#define DMA_RX_MULT			BIT(5)
+#define DMA_RX_LG			BIT(4)
+#define DMA_RX_NO			BiT(3)
+#define DMA_RX_RXER			BIT(2)
+#define DMA_RX_CRC_ERROR		BIT(1)
+#define DMA_RX_OV			BIT(0)
+
+#define DMA_RX_FI_MASK			0x001F
+#define DMA_RX_FI_SHIFT		0x0007
+#define DMA_DESC_ALLOC_MASK		0x00FF
+#define DMA_ARBITER_RR			0x00
+#define DMA_ARBITER_WRR		0x01
+#define DMA_ARBITER_SP			0x02
+
 /* DMA rings size */
 #define DMA_RING_SIZE			0x40
 #define DMA_RINGS_SIZE			(DMA_RING_SIZE * (DEFAULT_Q + 1))
@@ -247,17 +277,6 @@
 	(TOTAL_DESCS * DMA_DESC_SIZE)
 #define RDMA_RING_REG_BASE(x)					\
 	(GENET_RDMA_REG_OFF + (x * DMA_RING_SIZE))
-#if 0	
-#define RDMA_WRITE_PTR			(RDMA_RING_REG_BASE + 0x00)
-#define RDMA_PROD_INDEX		(RDMA_RING_REG_BASE + 0x08)
-#define RDMA_CONS_INDEX		(RDMA_RING_REG_BASE + 0x0c)
-#define RDMA_RING_BUF_SIZE		(RDMA_RING_REG_BASE + 0x10)
-#define RDMA_START_ADDR		(RDMA_RING_REG_BASE + 0x14)
-#define RDMA_END_ADDR			(RDMA_RING_REG_BASE + 0x1c)
-#define RDMA_MBUF_DONE_THRESH		(RDMA_RING_REG_BASE + 0x24)
-#define RDMA_XON_XOFF_THRESH		(RDMA_RING_REG_BASE + 0x28)
-#define RDMA_READ_PTR			(RDMA_RING_REG_BASE + 0x2c)
-#endif
 
 #define RDMA_WRITE_PTR_Q0		(RDMA_RING_REG_BASE(0) + 0x00)
 #define RDMA_PROD_INDEX_Q0		(RDMA_RING_REG_BASE(0) + 0x08)
@@ -446,7 +465,8 @@
 #define RX_BUF_LENGTH			2048
 #define RX_TOTAL_BUFSIZE		(RX_BUF_LENGTH * RX_DESCS)
 #define RX_BUF_OFFSET			2
-
+#define GENET_Q16_TX_BD_CNT  		TOTAL_DESCS - (4 * 32)
+#define GENET_Q16_RX_BD_CNT  		TOTAL_DESCS
 #define DEBUG 0
 
 #define GENET_HFB_OFF			0x8000
@@ -491,7 +511,7 @@ typedef struct BCMGENETState {
 
     /* Cache some useful things */
     uint32_t rx_mask;
-    uint32_t tx_mask;
+    uint32_t last_desc_base;
     uint32_t ring_idx;
 
     /* Current tx packet */

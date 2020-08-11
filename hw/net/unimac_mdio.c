@@ -362,12 +362,27 @@ static void do_phy_write(BCMGENETState *s, uint8_t phy_addr, uint8_t reg, uint16
     case MII_BMCR:     /* Basic Control */
         if (val & MII_BMCR_RESET) {
             phy_reset(s);
+            val &= ~MII_BMCR_RESET;
+            val |= MII_BMCR_AUTOEN;
         } else {
             s->phy_control = val & MII_BMCR_MASK;
             /* Complete autonegotiation immediately.  */
             if (val & MII_BMCR_AUTOEN) {
+                val &= ~MII_BMCR_AUTOEN;
                 s->phy_status |= MII_BMSR_AN_COMP;
             }
+        }
+        if (val & MII_BMCR_ANRESTART) {
+        /* Autoclear auto negotiation restart */
+           val &= ~MII_BMCR_ANRESTART;
+
+           /* Indicate negotiation complete */
+           s->phy_status |= MII_BMSR_AN_COMP;
+
+           if (!qemu_get_queue(s->nic)->link_down) {
+//                s->phy_alapar |= MII_ANLPAR_TXFD;
+             s->phy_status |= MII_BMSR_LINK_ST;
+           }
         }
         break;
     case MII_ANAR:     /* Auto-neg advertisement */
